@@ -16,7 +16,8 @@
 //trama set
 #define FLAG 0x7e
 #define A 0x03
-#define C 0x03
+#define C_SET 0x03
+#define C_UA 0x07
 #define BCC 0x00
 
 volatile int STOP=FALSE;
@@ -58,7 +59,7 @@ int main(int argc, char** argv)
     /* set input mode (non-canonical, no echo,...) */
     newtio.c_lflag = 0;
 
-    newtio.c_cc[VTIME]    = 5;   /* inter-character timer unused */
+    newtio.c_cc[VTIME]    = 10;   /* inter-character timer unused */
     newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
 
 
@@ -79,52 +80,82 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-	//ver flag e guardar em buf para mandar
-    gets(buf);
+	/*************para mandar uma cadeia de caracteres***********
+    gets(buf); 
 	
 	int itt;
 	itt=strlen(buf);
-			
-/*
-    for (i = 0; i < 255; i++) {
-      buf[i] = 'a';
-    }
-    
-    /*testing*/
-   /* buf[25] = '\n';
-    */
+
+	res = write(fd,buf,itt+1);   
+    printf("%d bytes written\n", res);
+	***********************************************************/
 
 
-	//criar a mensagem FLAG A C BCC FLAG
-	//enviar mensagem em vez do texto
+	/******************* para mandar trama SET *****************
+	******** criar a trama FLAG A C BCC FLAG
+	******** enviar trama em vez do texto*/
 	char SET[5];
 	SET[0]=FLAG;
 	SET[1]=A;
-	SET[2]=C;
-	SET[3]=BCC;
+	SET[2]=C_SET;
+	SET[3]=A^C_SET;
 	SET[4]=FLAG;
-    res = write(fd,buf,itt+1);   
-    printf("%d bytes written\n", res);
 
+
+
+	res = write(fd,SET,5);   
+	printf("enviei trama SET! com %d bytes\n", res);
+	/**************** para receber trama UA ****************/	
+	char aux;
+	res=-1;
+	int itt=0;	
+	//leitura da trama para buf
+	while (1) 
+	{
+		while (res!=1)
+        	res = read(fd,&aux,1); 
+		res=-1;
+		if(aux==FLAG)
+		{
+			buf[itt]=aux;
+			itt++;
+			aux=0x00;
+			while(aux!=FLAG)
+			{
+				while (res!=1)
+					res = read(fd,&aux,1); 
+				res=-1;
+				buf[itt]=aux;
+				itt++;
+			}
+			if(buf[0]==FLAG && buf[1]==A && buf[2]==C_UA && buf[3]==A^C_UA && buf[4]==FLAG)
+			{
+				printf("recebi trama UA!\n");
+				break;
+			}
+			printf("recebi trama errada!\n");
+			break;
+		}
+	}	
 	
-
+/************* para receber uma cadeia de caracteres ****************
 	itt=0;
 	char aux;
 	res=-1;
 	//espera para receber trama UA durante 3s e processa trama, senao volta a enviar
     while (1) 
-	{       /* loop for input */
+	{
 		while (res!=1)
-        	res = read(fd,&aux,1);  /* returns after 5 chars have been input */
+        	res = read(fd,&aux,1);
 		res=-1;
 		buf[itt]=aux;
 		if(aux=='\0') break;
 		itt++;
     }
 
-	//buf[itt+1]='\0';               /* so we can printf... */
+	//buf[itt+1]='\0'; 
 	printf("%s\n", buf);
-
+***************************************************************/
 
   /* 
     O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
