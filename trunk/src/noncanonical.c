@@ -12,8 +12,8 @@
 #define TRUE 1
 
 #define FLAG 0x7E
-#define CRcv 0x01
-#define CEmm 0x03 
+#define A_Rcv_to_Snd 0x01
+#define A_Snd_to_Rcv 0x03 
 #define C_SET 0x03
 #define C_UA 0x07
 
@@ -76,26 +76,68 @@ int main(int argc, char** argv)
 
     printf("New termios structure set\n");
 
-
+/********** para receber uma cadeia de caracteres **************
 	int itt;
 	itt=0;
 	char aux;
 	res=-1;
     while (1) 
-	{       /* loop for input */
+	{       
 		while (res!=1)
-        	res = read(fd,&aux,1);   /* returns after 5 chars have been input */
+        	res = read(fd,&aux,1); 
 		res=-1;
 		buf[itt]=aux;				
 		if (aux=='\0')	break;
 		itt++;		
     }
 
-	//buf[itt+1]='\0';               /* so we can printf... */
+	//buf[itt+1]='\0';               so we can printf...
 	printf("%s\n", buf);
 
 	
 	write(fd,buf,itt+1);
+******************************************************************/
+
+/****************** para receber trama e trata-la ****************/	
+	//vamos usar buf
+	char aux;
+	res=-1;
+	int itt=0;	
+	//leitura da trama para buf
+	while (1) 
+	{
+		while (res!=1)
+        	res = read(fd,&aux,1); 
+		res=-1;
+		if(aux==FLAG)
+		{
+			buf[itt]=aux;
+			itt++;
+			aux=0x00;
+			while(aux!=FLAG)
+			{
+				while (res!=1)
+					res = read(fd,&aux,1); 
+				res=-1;
+				buf[itt]=aux;
+				itt++;
+			}
+			if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_SET && buf[3]==A_Snd_to_Rcv^C_SET && buf[4]==FLAG)
+			{
+				printf("recebi trama SET!\n");
+				buf[0]=FLAG;
+				buf[1]=A_Snd_to_Rcv;
+				buf[2]=C_UA;
+				buf[3]=A_Snd_to_Rcv^C_UA;
+				buf[4]=FLAG;
+				res=write(fd,buf,5);
+				printf("enviei trama UA! com %d bytes\n", res);
+				break;
+			}
+		}
+	}
+
+	
 
   /* 
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
