@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <signal.h>
 
 
 #define BAUDRATE B38400
@@ -15,18 +17,116 @@
 
 //trama set
 #define FLAG 0x7e
-#define A 0x03
+#define A_Rcv_to_Snd 0x01
+#define A_Snd_to_Rcv 0x03 
 #define C_SET 0x03
 #define C_UA 0x07
+#define C_DISC 0x0b
 #define BCC 0x00
 
 volatile int STOP=FALSE;
+int passou=FALSE;
+char buf[255];
+
+void atende()                   // atende alarme
+{
+	passou=TRUE;
+}
+
+void alarme(int n)
+{
+
+	(void) signal(SIGALRM, atende);  // instala  rotina que atende interrupcao
+
+	alarm(n);                 // activa alarme de 3s
+}
+
+int recebe(int fd)
+{
+	char aux;
+	int res=-1;
+	int itt=0;	
+	//leitura da trama para buf
+	while (res!=1)
+	{
+    	res = read(fd,&aux,1); 
+		if(passou) return FALSE;
+	}
+	res=-1;
+	if(aux==FLAG)
+	{
+		buf[itt]=aux;
+		itt++;
+		aux=0x00;
+		if(passou) return FALSE;
+		while(aux!=FLAG)
+		{
+			while (res!=1)
+			{
+				res = read(fd,&aux,1); 
+				if(passou) return FALSE;
+			}
+			if(passou) return FALSE;
+			res=-1;
+			buf[itt]=aux;
+			itt++;
+		}
+		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_UA && buf[3]==A_Snd_to_Rcv^C_UA && buf[4]==FLAG)
+		{
+			printf("recebi trama UA!\n");
+			return TRUE;
+		}
+		printf("recebi trama errada!\n");
+		return FALSE;
+	}
+}
+
+int close(int fd)
+{
+	char aux;
+	int res=-1;
+	int itt=0;	
+	//leitura da trama para buf
+	while (res!=1)
+	{
+    	res = read(fd,&aux,1); 
+		if(passou) return FALSE;
+	}
+	res=-1;
+	if(aux==FLAG)
+	{
+		buf[itt]=aux;
+		itt++;
+		aux=0x00;
+		if(passou) return FALSE;
+		while(aux!=FLAG)
+		{
+			while (res!=1)
+			{
+				res = read(fd,&aux,1); 
+				if(passou) return FALSE;
+			}
+			if(passou) return FALSE;
+			res=-1;
+			buf[itt]=aux;
+			itt++;
+		}
+		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==A_Snd_to_Rcv^C_DISC && buf[4]==FLAG)
+		{
+			printf("recebi trama DISC!\n");
+			return TRUE;
+		}
+		printf("recebi trama errada!\n");
+		return FALSE;
+	}
+
+}
 
 int main(int argc, char** argv)
 {
     int fd,c, res;
     struct termios oldtio,newtio;
-    char buf[255];
+    
     int i, sum = 0, speed = 0;
     
     if ( (argc < 2) || 
@@ -92,52 +192,57 @@ int main(int argc, char** argv)
 
 
 	/******************* para mandar trama SET *****************
-	******** criar a trama FLAG A C BCC FLAG
+	******** criar a trama FLAG A_Snd_to_Rcv C BCC FLAG
 	******** enviar trama em vez do texto*/
-	char SET[5];
-	SET[0]=FLAG;
-	SET[1]=A;
-	SET[2]=C_SET;
-	SET[3]=A^C_SET;
-	SET[4]=FLAG;
+	buf[0]=FLAG;
+	buf[1]=A_Snd_to_Rcv;
+	buf[2]=C_SET;
+	buf[3]=A_Snd_to_Rcv^C_SET;
+	buf[4]=FLAG;
 
 
 
-	res = write(fd,SET,5);   
+	res = write(fd,buf,5);   
 	printf("enviei trama SET! com %d bytes\n", res);
+	alarme(3);
 	/**************** para receber trama UA ****************/	
-	char aux;
-	res=-1;
-	int itt=0;	
-	//leitura da trama para buf
-	while (1) 
+	while(!recebe(fd))
 	{
-		while (res!=1)
-        	res = read(fd,&aux,1); 
-		res=-1;
-		if(aux==FLAG)
-		{
-			buf[itt]=aux;
-			itt++;
-			aux=0x00;
-			while(aux!=FLAG)
-			{
-				while (res!=1)
-					res = read(fd,&aux,1); 
-				res=-1;
-				buf[itt]=aux;
-				itt++;
-			}
-			if(buf[0]==FLAG && buf[1]==A && buf[2]==C_UA && buf[3]==A^C_UA && buf[4]==FLAG)
-			{
-				printf("recebi trama UA!\n");
-				break;
-			}
-			printf("recebi trama errada!\n");
-			break;
-		}
+		passou=FALSE;
+		alarme(3);
+		res = write(fd,buf,5);   
+		printf("enviei trama SET! com %d bytes\n", res);
 	}	
+
+
+	/************** llclose ****************/
+	buf[0]=FLAG;
+	buf[1]=A_Snd_to_Rcv;
+	buf[2]=C_DISC;
+	buf[3]=A_Snd_to_Rcv^C_DISC;
+	buf[4]=FLAG;
 	
+	res = write(fd,buf,5);   
+	printf("enviei trama DISC! com %d bytes\n", res);
+	alarme(3);
+	while(!close(fd))
+	{
+		passou=FALSE;
+		alarme(3);
+		res = write(fd,buf,5);   
+		printf("enviei trama DISC! com %d bytes\n", res);
+	}
+
+	buf[0]=FLAG;
+	buf[1]=A_Rcv_to_Snd;
+	buf[2]=C_UA;
+	buf[3]=A_Rcv_to_Snd^C_UA;
+	buf[4]=FLAG;
+
+	res = write(fd,buf,5);   
+	printf("enviei trama UA! com %d bytes\n", res);
+
+
 /************* para receber uma cadeia de caracteres ****************
 	itt=0;
 	char aux;
