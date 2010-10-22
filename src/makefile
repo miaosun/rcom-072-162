@@ -13,13 +13,13 @@ rec: ./rece /dev/ttyS0
 send: $(EMISSOR)
 	$(CC) -o send $(EMISSOR)
 
-writenoncanonical.o: writenoncanonical.c
+writenoncanonical.o: writenoncanonical.c writenoncanonical.h
 	$(CC) $(CFLAGS) $< -c -o $@
 
 rece: $(RECEPTOR)
 	$(CC) -o rece $(RECEPTOR)
 
-noncanonical.o: noncanonical.c
+noncanonical.o: noncanonical.c noncanonical.h
 	$(CC) $(CFLAGS) $< -c -o $@
 
 clean: 
