@@ -1,133 +1,12 @@
-/*Non-Canonical Input Processing*/
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <termios.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <signal.h>
+//EMISSOR
 
 
-#define BAUDRATE B38400
-#define MODEMDEVICE "/dev/ttyS1"
-#define _POSIX_SOURCE 1 /* POSIX compliant source */
-#define FALSE 0
-#define TRUE 1
-
-#define FIFO_PERMS (S_IRWXU | S_IWGRP | S_IWOTH) 
-#define FIFO_READ O_RDONLY// | O_NONBLOCK
-#define FIFO_WRITE O_WRONLY
-
-#define SERIAL 1
-#define PIPE 0
-
-//trama
-#define FLAG 0x7E
-#define A_Rcv_to_Snd 0x01
-#define A_Snd_to_Rcv 0x03 
-#define C_SET 0x03
-#define C_UA 0x07
-#define C_DISC 0x0B
+#include "writenoncanonical.h"
 
 
 volatile int STOP=FALSE;
 int passou=FALSE, mode;
 char buf[255];
-
-void atende()                   // atende alarme
-{
-	passou=TRUE;
-}
-
-void alarme(int n)
-{
-
-	(void) signal(SIGALRM, atende);  // instala  rotina que atende interrupcao
-
-	alarm(n);                 // activa alarme de 3s
-}
-
-int recebe(int fd)
-{
-	char aux;
-	int res=-1;
-	int itt=0;	
-	//leitura da trama para buf
-	while (res!=1)
-	{
-    	res = read(fd,&aux,1); 
-		if(passou) return FALSE;
-	}
-	res=-1;
-	if(aux==FLAG)
-	{
-		buf[itt]=aux;
-		itt++;
-		aux=0x00;
-		if(passou) return FALSE;
-		while(aux!=FLAG)
-		{
-			while (res!=1)
-			{
-				res = read(fd,&aux,1); 
-				if(passou) return FALSE;
-			}
-			if(passou) return FALSE;
-			res=-1;
-			buf[itt]=aux;
-			itt++;
-		}
-		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_UA && buf[3]==(A_Snd_to_Rcv^C_UA) && buf[4]==FLAG)
-		{
-			printf("recebi trama UA!\n");
-			return TRUE;
-		}
-		printf("recebi trama errada!\n");
-		return FALSE;
-	}
-}
-
-int fecha(int fd)
-{
-	char aux;
-	int res=-1;
-	int itt=0;	
-	//leitura da trama para buf
-	while (res!=1)
-	{
-    	res = read(fd,&aux,1); 
-		if(passou) return FALSE;
-	}
-	res=-1;
-	if(aux==FLAG)
-	{
-		buf[itt]=aux;
-		itt++;
-		aux=0x00;
-		if(passou) return FALSE;
-		while(aux!=FLAG)
-		{
-			while (res!=1)
-			{
-				res = read(fd,&aux,1); 
-				if(passou) return FALSE;
-			}
-			if(passou) return FALSE;
-			res=-1;
-			buf[itt]=aux;
-			itt++;
-		}
-		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==(A_Snd_to_Rcv^C_DISC) && buf[4]==FLAG)
-		{
-			printf("recebi trama DISC!\n");
-			return TRUE;
-		}
-		printf("recebi trama errada!\n");
-		return FALSE;
-	}
-
-}
 
 int main(int argc, char** argv)
 {
@@ -211,20 +90,67 @@ int main(int argc, char** argv)
 		printf("New termios structure set\n");
 	}
 
-	/*************para mandar uma cadeia de caracteres***********
-    gets(buf); 
 	
-	int itt;
-	itt=strlen(buf);
+	envia_SET(fd); //envia SET e espera por UA
+	
+	envia_DISC(fd); //envia DISC e espera por DISC
 
-	res = write(fd,buf,itt+1);   
-    printf("%d bytes written\n", res);
-	***********************************************************/
+	
+	//envia UA final
+	buf[0]=FLAG;
+	buf[1]=A_Rcv_to_Snd;
+	buf[2]=C_UA;
+	buf[3]=(A_Rcv_to_Snd^C_UA);
+	buf[4]=FLAG;
+
+	res = write(fd[1],buf,5);   
+	printf("enviei trama UA! com %d bytes\n", res);
 
 
+
+  /* 
+    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
+    o indicado no guião 
+  */
+
+	sleep(2);
+	if(mode==SERIAL)
+		tcsetattr(fd,TCSANOW,&oldtio);
+	else 
+		close(fd[1]);
+
+	close(fd[0]);
+
+    return 0;
+}
+
+void envia_DISC(int fd[2])
+{
+	int res;
+	/************** llclose ****************/
+	buf[0]=FLAG;
+	buf[1]=A_Snd_to_Rcv;
+	buf[2]=C_DISC;
+	buf[3]=(A_Snd_to_Rcv^C_DISC);
+	buf[4]=FLAG;
+	
+	res = write(fd[1],buf,5);   
+	printf("enviei trama DISC! com %d bytes\n", res);
+	alarme(3);
+	while(!recebe_DISC(fd[0]))
+	{
+		passou=FALSE;
+		alarme(3);
+		res = write(fd[1],buf,5);   
+		printf("enviei trama DISC! com %d bytes\n", res);
+	}
+}
+
+void envia_SET(int fd[2])
+{
+	int res;
 	/******************* para mandar trama SET *****************
-	******** criar a trama FLAG A_Snd_to_Rcv C BCC FLAG
-	******** enviar trama em vez do texto*/
+	******** criar a trama FLAG A_Snd_to_Rcv C BCC FLAG********/
 	buf[0]=FLAG;
 	buf[1]=A_Snd_to_Rcv;
 	buf[2]=C_SET;
@@ -237,42 +163,118 @@ int main(int argc, char** argv)
 	printf("enviei trama SET! com %d bytes\n", res);
 	alarme(3);
 	/**************** para receber trama UA ****************/	
-	while(!recebe(fd[0]))
+	while(!recebe_UA(fd[0]))
 	{
 		passou=FALSE;
 		alarme(3);
 		res = write(fd[1],buf,5);   
 		printf("enviei trama SET! com %d bytes\n", res);
-	}	
+	}
+}
 
+void atende()                   // atende alarme
+{
+	passou=TRUE;
+}
 
-	/************** llclose ****************/
-	buf[0]=FLAG;
-	buf[1]=A_Snd_to_Rcv;
-	buf[2]=C_DISC;
-	buf[3]=(A_Snd_to_Rcv^C_DISC);
-	buf[4]=FLAG;
-	
-	res = write(fd[1],buf,5);   
-	printf("enviei trama DISC! com %d bytes\n", res);
-	alarme(3);
-	while(!fecha(fd[0]))
+void alarme(int n)
+{
+
+	(void) signal(SIGALRM, atende);  // instala  rotina que atende interrupcao
+
+	alarm(n);                 // activa alarme de 3s
+}
+
+int recebe_UA(int fd)
+{
+	char aux;
+	int res=-1;
+	int itt=0;	
+	//leitura da trama para buf
+	while (res!=1)
 	{
-		passou=FALSE;
-		alarme(3);
-		res = write(fd[1],buf,5);   
-		printf("enviei trama DISC! com %d bytes\n", res);
+    	res = read(fd,&aux,1); 
+		if(passou) return FALSE;
+	}
+	res=-1;
+	if(aux==FLAG)
+	{
+		buf[itt]=aux;
+		itt++;
+		aux=0x00;
+		if(passou) return FALSE;
+		while(aux!=FLAG)
+		{
+			while (res!=1)
+			{
+				res = read(fd,&aux,1); 
+				if(passou) return FALSE;
+			}
+			if(passou) return FALSE;
+			res=-1;
+			buf[itt]=aux;
+			itt++;
+		}
+		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_UA && buf[3]==(A_Snd_to_Rcv^C_UA) && buf[4]==FLAG)
+		{
+			printf("recebi trama UA!\n");
+			return TRUE;
+		}
+		printf("recebi trama errada!\n");
+		return FALSE;
+	}
+}
+
+int recebe_DISC(int fd)
+{
+	char aux;
+	int res=-1;
+	int itt=0;	
+	//leitura da trama para buf
+	while (res!=1)
+	{
+    	res = read(fd,&aux,1); 
+		if(passou) return FALSE;
+	}
+	res=-1;
+	if(aux==FLAG)
+	{
+		buf[itt]=aux;
+		itt++;
+		aux=0x00;
+		if(passou) return FALSE;
+		while(aux!=FLAG)
+		{
+			while (res!=1)
+			{
+				res = read(fd,&aux,1); 
+				if(passou) return FALSE;
+			}
+			if(passou) return FALSE;
+			res=-1;
+			buf[itt]=aux;
+			itt++;
+		}
+		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==(A_Snd_to_Rcv^C_DISC) && buf[4]==FLAG)
+		{
+			printf("recebi trama DISC!\n");
+			return TRUE;
+		}
+		printf("recebi trama errada!\n");
+		return FALSE;
 	}
 
-	buf[0]=FLAG;
-	buf[1]=A_Rcv_to_Snd;
-	buf[2]=C_UA;
-	buf[3]=(A_Rcv_to_Snd^C_UA);
-	buf[4]=FLAG;
+}
 
-	res = write(fd[1],buf,5);   
-	printf("enviei trama UA! com %d bytes\n", res);
+/*************para mandar uma cadeia de caracteres***********
+    gets(buf); 
+	
+	int itt;
+	itt=strlen(buf);
 
+	res = write(fd,buf,itt+1);   
+    printf("%d bytes written\n", res);
+***********************************************************/
 
 /************* para receber uma cadeia de caracteres ****************
 	itt=0;
@@ -293,18 +295,3 @@ int main(int argc, char** argv)
 	printf("%s\n", buf);
 ***************************************************************/
 
-  /* 
-    O ciclo FOR e as instruções seguintes devem ser alterados de modo a respeitar 
-    o indicado no guião 
-  */
-
-	sleep(2);
-	if(mode==SERIAL)
-		tcsetattr(fd,TCSANOW,&oldtio);
-	else 
-		close(fd[1]);
-
-	close(fd[0]);
-
-    return 0;
-}
