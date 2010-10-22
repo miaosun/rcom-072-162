@@ -27,4 +27,6 @@ clean:
 	-rm $(RECEPTOR)
 	-rm send
 	-rm rece
+	-rm E_2_R
+	-rm R_2_E
 	clear
