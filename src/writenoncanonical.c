@@ -22,14 +22,14 @@
 #define SERIAL 1
 #define PIPE 0
 
-//trama set
-#define FLAG 0x7e
+//trama
+#define FLAG 0x7E
 #define A_Rcv_to_Snd 0x01
 #define A_Snd_to_Rcv 0x03 
 #define C_SET 0x03
 #define C_UA 0x07
-#define C_DISC 0x0b
-#define BCC 0x00
+#define C_DISC 0x0B
+
 
 volatile int STOP=FALSE;
 int passou=FALSE, mode;
@@ -298,12 +298,11 @@ int main(int argc, char** argv)
     o indicado no guião 
   */
 
+	sleep(2);
 	if(mode==SERIAL)
-	{
-		sleep(2);
 		tcsetattr(fd,TCSANOW,&oldtio);
-	}
-	else close(fd[1]);
+	else 
+		close(fd[1]);
 
 	close(fd[0]);
 
