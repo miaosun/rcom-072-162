@@ -140,6 +140,8 @@ int main(int argc, char** argv)
 	//leitura da trama para buf
 	while (acabou == FALSE) 
 	{
+		res=-1;
+		itt=0;
 		while (res!=1)
         		res = read(fd[0],&aux,1); 
 		res=-1;
@@ -174,11 +176,10 @@ int main(int argc, char** argv)
 
 /****************** para receber trama DISC e trata-la ****************/	
 
-	res=-1;
-	itt=0;
-
 	while(1){
 		
+		res=-1;
+		itt=0;
 		while (res!=1)
         		res = read(fd[0],&aux,1); //vai lendo caracteres
 		res=-1;
@@ -210,8 +211,10 @@ int main(int argc, char** argv)
 
 /****************** para receber trama UA final e trata-la ****************/
 
-while (1) 
+	while (1) 
 	{
+		res=-1;
+		itt=0;
 		while (res!=1)
         		res = read(fd[0],&aux,1); 
 		res=-1;
@@ -220,7 +223,7 @@ while (1)
 			buf[itt]=aux;
 			itt++;
 			aux=0x00;
-			while(aux!=FLAG)
+			while(itt<5)//aux!=FLAG)
 			{
 				while (res!=1)
 					res = read(fd[0],&aux,1); 
@@ -231,7 +234,7 @@ while (1)
 			if(buf[0]==FLAG && buf[1]==A_Rcv_to_Snd && buf[2]==C_UA && buf[3]==(A_Rcv_to_Snd^C_UA) && buf[4]==FLAG)
 			{
 				printf("recebi trama UA!\n");
-				printf("Conclui com êxito a transmissão de pacotes");
+				printf("Conclui com exito a transmissao de pacotes\n");
 				break;
 			}
 			printf("recebi trama errada\n");
@@ -244,12 +247,11 @@ while (1)
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
   */
 
+	sleep(2);
 	if(mode==SERIAL)
-	{
-		sleep(2);
 		tcsetattr(fd[0],TCSANOW,&oldtio);
-	}
-	else close(fd[1]);
+	else 
+		close(fd[1]);
 
 	close(fd[0]);
 
