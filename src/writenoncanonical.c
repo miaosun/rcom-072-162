@@ -15,6 +15,13 @@
 #define FALSE 0
 #define TRUE 1
 
+#define FIFO_PERMS (S_IRWXU | S_IWGRP | S_IWOTH) 
+#define FIFO_READ O_RDONLY// | O_NONBLOCK
+#define FIFO_WRITE O_WRONLY
+
+#define SERIAL 1
+#define PIPE 0
+
 //trama set
 #define FLAG 0x7e
 #define A_Rcv_to_Snd 0x01
@@ -25,7 +32,7 @@
 #define BCC 0x00
 
 volatile int STOP=FALSE;
-int passou=FALSE;
+int passou=FALSE, mode;
 char buf[255];
 
 void atende()                   // atende alarme
@@ -71,7 +78,7 @@ int recebe(int fd)
 			buf[itt]=aux;
 			itt++;
 		}
-		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_UA && buf[3]==A_Snd_to_Rcv^C_UA && buf[4]==FLAG)
+		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_UA && buf[3]==(A_Snd_to_Rcv^C_UA) && buf[4]==FLAG)
 		{
 			printf("recebi trama UA!\n");
 			return TRUE;
@@ -81,7 +88,7 @@ int recebe(int fd)
 	}
 }
 
-int close(int fd)
+int fecha(int fd)
 {
 	char aux;
 	int res=-1;
@@ -111,7 +118,7 @@ int close(int fd)
 			buf[itt]=aux;
 			itt++;
 		}
-		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==A_Snd_to_Rcv^C_DISC && buf[4]==FLAG)
+		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==(A_Snd_to_Rcv^C_DISC) && buf[4]==FLAG)
 		{
 			printf("recebi trama DISC!\n");
 			return TRUE;
@@ -124,61 +131,85 @@ int close(int fd)
 
 int main(int argc, char** argv)
 {
-    int fd,c, res;
+    int fd[2],c, res;
     struct termios oldtio,newtio;
     
     int i, sum = 0, speed = 0;
     
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
-  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) {
-      printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
-      exit(1);
+  	      (strcmp("/dev/ttyS1", argv[1])!=0) )) 
+	{
+    	/*printf("Usage:\tnserial SerialPort\n\tex: nserial /dev/ttyS1\n");
+    	exit(1);*/
+		if((fd[0]=open("R_2_E", FIFO_READ))==-1){
+			printf("failed to open fifo: R_2_E\n");
+			return 1;
+  		}
+		printf("abriu fifo de entrada\n");
+		if(mkfifo("E_2_R", FIFO_PERMS)!=0)
+		{
+			printf("failed to create fifo E_2_R\n");
+			exit(1);
+		}
+		printf("criou fifo de saida\n");
+		if((fd[1]=open("E_2_R", FIFO_WRITE))==-1){
+			printf("failed to open fifo: E_2_R\n");
+			return 1;
+  		}
+		printf("abriu fifo de saida\n");
+		mode=PIPE;
     }
-
-
-  /*
-    Open serial port device for reading and writing and not as controlling tty
-    because we don't want to get killed if linenoise sends CTRL-C.
-  */
-
-
-    fd = open(argv[1], O_RDWR | O_NOCTTY );
-    if (fd <0) {perror(argv[1]); exit(-1); }
-
-    if ( tcgetattr(fd,&oldtio) == -1) { /* save current port settings */
-      perror("tcgetattr");
-      exit(-1);
-    }
-
-    bzero(&newtio, sizeof(newtio));
-    newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
-    newtio.c_iflag = IGNPAR;
-    newtio.c_oflag = 0;
-
-    /* set input mode (non-canonical, no echo,...) */
-    newtio.c_lflag = 0;
-
-    newtio.c_cc[VTIME]    = 10;   /* inter-character timer unused */
-    newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
+	else mode=SERIAL;
 
 
 
-  /* 
-    VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
-    leitura do(s) próximo(s) caracter(es)
-  */
+	if(mode==SERIAL)
+	{
+	  /*
+		Open serial port device for reading and writing and not as controlling tty
+		because we don't want to get killed if linenoise sends CTRL-C.
+	  */
+
+
+		fd[0] = open(argv[1], O_RDWR | O_NOCTTY );
+		fd[1] = fd[0];
+		if (fd[0] <0) {perror(argv[1]); exit(-1); }
+
+		if ( tcgetattr(fd[0],&oldtio) == -1) { /* save current port settings */
+		  perror("tcgetattr");
+		  exit(-1);
+		}
+
+		bzero(&newtio, sizeof(newtio));
+		newtio.c_cflag = BAUDRATE | CS8 | CLOCAL | CREAD;
+		newtio.c_iflag = IGNPAR;
+		newtio.c_oflag = 0;
+
+		/* set input mode (non-canonical, no echo,...) */
+		newtio.c_lflag = 0;
+
+		newtio.c_cc[VTIME]    = 10;   /* inter-character timer unused */
+		newtio.c_cc[VMIN]     = 0;   /* blocking read until 5 chars received */
 
 
 
-    tcflush(fd, TCIOFLUSH);
+	  /* 
+		VTIME e VMIN devem ser alterados de forma a proteger com um temporizador a 
+		leitura do(s) próximo(s) caracter(es)
+	  */
 
-    if ( tcsetattr(fd,TCSANOW,&newtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
 
-    printf("New termios structure set\n");
+
+		tcflush(fd[0], TCIOFLUSH);
+
+		if ( tcsetattr(fd[0],TCSANOW,&newtio) == -1) {
+		  perror("tcsetattr");
+		  exit(-1);
+		}
+
+		printf("New termios structure set\n");
+	}
 
 	/*************para mandar uma cadeia de caracteres***********
     gets(buf); 
@@ -197,20 +228,20 @@ int main(int argc, char** argv)
 	buf[0]=FLAG;
 	buf[1]=A_Snd_to_Rcv;
 	buf[2]=C_SET;
-	buf[3]=A_Snd_to_Rcv^C_SET;
+	buf[3]=(A_Snd_to_Rcv^C_SET);
 	buf[4]=FLAG;
 
 
 
-	res = write(fd,buf,5);   
+	res = write(fd[1],buf,5);   
 	printf("enviei trama SET! com %d bytes\n", res);
 	alarme(3);
 	/**************** para receber trama UA ****************/	
-	while(!recebe(fd))
+	while(!recebe(fd[0]))
 	{
 		passou=FALSE;
 		alarme(3);
-		res = write(fd,buf,5);   
+		res = write(fd[1],buf,5);   
 		printf("enviei trama SET! com %d bytes\n", res);
 	}	
 
@@ -219,27 +250,27 @@ int main(int argc, char** argv)
 	buf[0]=FLAG;
 	buf[1]=A_Snd_to_Rcv;
 	buf[2]=C_DISC;
-	buf[3]=A_Snd_to_Rcv^C_DISC;
+	buf[3]=(A_Snd_to_Rcv^C_DISC);
 	buf[4]=FLAG;
 	
-	res = write(fd,buf,5);   
+	res = write(fd[1],buf,5);   
 	printf("enviei trama DISC! com %d bytes\n", res);
 	alarme(3);
-	while(!close(fd))
+	while(!fecha(fd[0]))
 	{
 		passou=FALSE;
 		alarme(3);
-		res = write(fd,buf,5);   
+		res = write(fd[1],buf,5);   
 		printf("enviei trama DISC! com %d bytes\n", res);
 	}
 
 	buf[0]=FLAG;
 	buf[1]=A_Rcv_to_Snd;
 	buf[2]=C_UA;
-	buf[3]=A_Rcv_to_Snd^C_UA;
+	buf[3]=(A_Rcv_to_Snd^C_UA);
 	buf[4]=FLAG;
 
-	res = write(fd,buf,5);   
+	res = write(fd[1],buf,5);   
 	printf("enviei trama UA! com %d bytes\n", res);
 
 
@@ -267,15 +298,14 @@ int main(int argc, char** argv)
     o indicado no guião 
   */
 
-	sleep(1);
+	if(mode==SERIAL)
+	{
+		sleep(2);
+		tcsetattr(fd,TCSANOW,&oldtio);
+	}
+	else close(fd[1]);
 
-   
-    if ( tcsetattr(fd,TCSANOW,&oldtio) == -1) {
-      perror("tcsetattr");
-      exit(-1);
-    }
+	close(fd[0]);
 
-
-    close(fd);
     return 0;
 }
