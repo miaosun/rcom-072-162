@@ -16,6 +16,7 @@
 #define A_Snd_to_Rcv 0x03 
 #define C_SET 0x03
 #define C_UA 0x07
+#define C_DISC 0x0B
 
 volatile int STOP=FALSE;
 
@@ -98,16 +99,17 @@ int main(int argc, char** argv)
 	write(fd,buf,itt+1);
 ******************************************************************/
 
-/****************** para receber trama e trata-la ****************/	
+/****************** para receber trama SET e trata-la ****************/	
 	//vamos usar buf
 	char aux;
 	res=-1;
 	int itt=0;	
+	int acabou = FALSE;
 	//leitura da trama para buf
-	while (1) 
+	while (acabou == FALSE) 
 	{
 		while (res!=1)
-        	res = read(fd,&aux,1); 
+        		res = read(fd,&aux,1); 
 		res=-1;
 		if(aux==FLAG)
 		{
@@ -132,19 +134,85 @@ int main(int argc, char** argv)
 				buf[4]=FLAG;
 				res=write(fd,buf,5);
 				printf("enviei trama UA! com %d bytes\n", res);
+				acabou = TRUE;
+			}
+		}
+	}
+/********FIM********** para receber trama SET e trata-la *******FIM*********/	
+
+/****************** para receber trama DISC e trata-la ****************/	
+
+	res=-1;
+	itt=0;
+
+	while(1){
+		
+		while (res!=1)
+        		res = read(fd,&aux,1); //vai lendo caracteres
+		res=-1;
+
+		if(aux == FLAG){ //se encontrar a FLAG enquanto le os caracteres, entao vai tratar a trama
+			buf[itt]=aux; //criando a trama, guarda na primeira posicao do buffer a FLAG inical da trama
+			itt++;
+			aux=0x00; //desactiva a FLAG para poder ir reconhecer o resto da trama
+			while(aux!=FLAG) //enquanto nao encontrar outra FLAG (que indica que terminou a trama),  
+			{		//vai processala
+				while (res!=1)
+					res = read(fd,&aux,1); 
+				res=-1;
+				buf[itt]=aux;
+				itt++;
+			}
+			if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==A_Snd_to_Rcv^C_DISC && buf[4]==FLAG) //se no buffer ja esta a trama toda comecando e acabando na FLAG, entao informa que recebeu e reenvia
+			{
+				printf("recebi trama DISC!\n");
+				res=write(fd,buf,5);
+				printf("enviei trama DISC! com %d bytes\n", res);
+				break;
+			}
+		}
+
+	}
+
+/********FIM********** para receber trama DISC e trata-la *******FIM*********/
+
+/****************** para receber trama UA final e trata-la ****************/
+
+while (1) 
+	{
+		while (res!=1)
+        		res = read(fd,&aux,1); 
+		res=-1;
+		if(aux==FLAG)
+		{
+			buf[itt]=aux;
+			itt++;
+			aux=0x00;
+			while(aux!=FLAG)
+			{
+				while (res!=1)
+					res = read(fd,&aux,1); 
+				res=-1;
+				buf[itt]=aux;
+				itt++;
+			}
+			if(buf[0]==FLAG && buf[1]==A_Rcv_to_Snd && buf[2]==C_UA && buf[3]==A_Rcv_to_Snd^C_UA && buf[4]==FLAG)
+			{
+				printf("recebi trama UA!\n");
+				printf("Conclui com êxito a transmissão de pacotes");
 				break;
 			}
 		}
 	}
 
-	
+/********FIM********** para receber trama UA final e trata-la *******FIM*********/	
 
   /* 
     O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
   */
 
 
-
+    sleep(2);
     tcsetattr(fd,TCSANOW,&oldtio);
     close(fd);
     return 0;
