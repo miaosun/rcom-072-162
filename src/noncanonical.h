@@ -10,6 +10,7 @@
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
+#define MAX_BYTES 10 //maximo tamanho da trama
 
 #define SERIAL 1
 #define PIPE 0
@@ -25,8 +26,9 @@
 #define C_UA 0x07
 #define C_DISC 0x0B
 
+int l_read(int fd[2]);//le uma trama para buf, retorna o tamanho da trama ou -1 se erro
 
-void recebe_SET(int fd[2]);
+int llopen(int fd[2]);
+int llclose(int fd[2]);
+
 void envia_UA(int fd[2]);
-void recebe_DISC(int fd[2]);
-void recebe_UA_F(int fd[2]);

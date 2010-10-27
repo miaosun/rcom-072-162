@@ -90,21 +90,12 @@ int main(int argc, char** argv)
 		printf("New termios structure set\n");
 	}
 
+	(void) signal(SIGALRM, atende);  // instala  rotina que atende interrupcao
 	
-	envia_SET(fd); //envia SET e espera por UA
+	llopen(fd); //envia SET e espera por UA
 	
-	envia_DISC(fd); //envia DISC e espera por DISC
+	llclose(fd); //envia DISC e espera por DISC
 
-	
-	//envia UA final
-	buf[0]=FLAG;
-	buf[1]=A_Rcv_to_Snd;
-	buf[2]=C_UA;
-	buf[3]=(A_Rcv_to_Snd^C_UA);
-	buf[4]=FLAG;
-
-	res = write(fd[1],buf,5);   
-	printf("enviei trama UA! com %d bytes\n", res);
 
 
 
@@ -124,31 +115,9 @@ int main(int argc, char** argv)
     return 0;
 }
 
-void envia_DISC(int fd[2])
+int llopen(int fd[2])
 {
-	int res;
-	/************** llclose ****************/
-	buf[0]=FLAG;
-	buf[1]=A_Snd_to_Rcv;
-	buf[2]=C_DISC;
-	buf[3]=(A_Snd_to_Rcv^C_DISC);
-	buf[4]=FLAG;
-	
-	res = write(fd[1],buf,5);   
-	printf("enviei trama DISC! com %d bytes\n", res);
-	alarme(3);
-	while(!recebe_DISC(fd[0]))
-	{
-		passou=FALSE;
-		alarme(3);
-		res = write(fd[1],buf,5);   
-		printf("enviei trama DISC! com %d bytes\n", res);
-	}
-}
-
-void envia_SET(int fd[2])
-{
-	int res;
+	int res, count=0;
 	/******************* para mandar trama SET *****************
 	******** criar a trama FLAG A_Snd_to_Rcv C BCC FLAG********/
 	buf[0]=FLAG;
@@ -157,113 +126,155 @@ void envia_SET(int fd[2])
 	buf[3]=(A_Snd_to_Rcv^C_SET);
 	buf[4]=FLAG;
 
-
-
 	res = write(fd[1],buf,5);   
 	printf("enviei trama SET! com %d bytes\n", res);
-	alarme(3);
+	alarm(3);
+	count++;
 	/**************** para receber trama UA ****************/	
 	while(!recebe_UA(fd[0]))
 	{
+		if(!(count<MAX_REPEAT))//se ja repetiu o max nr de vezes, termina com erro
+			return FALSE;
 		passou=FALSE;
-		alarme(3);
+		alarm(3);
 		res = write(fd[1],buf,5);   
 		printf("enviei trama SET! com %d bytes\n", res);
+		count++;
 	}
+	return TRUE;
 }
 
-void atende()                   // atende alarme
+int llclose(int fd[2])
+{
+	int res, count=0;
+	
+	//envia DISC
+	buf[0]=FLAG;
+	buf[1]=A_Snd_to_Rcv;
+	buf[2]=C_DISC;
+	buf[3]=(A_Snd_to_Rcv^C_DISC);
+	buf[4]=FLAG;
+	
+	res = write(fd[1],buf,5);   
+	printf("enviei trama DISC! com %d bytes\n", res);
+	alarm(3);
+	count++;
+	while(!recebe_DISC(fd[0]))//enquanto nao recebe DISC como resposta, envia novamente
+	{
+		if(!(count<MAX_REPEAT))//se ja repetiu o max nr de vezes, termina com erro
+			return FALSE;
+		passou=FALSE;
+		alarm(3);
+		res = write(fd[1],buf,5);   
+		printf("enviei trama DISC! com %d bytes\n", res);
+		count++;
+	}
+
+	//envia UA final
+	buf[0]=FLAG;
+	buf[1]=A_Rcv_to_Snd;
+	buf[2]=C_UA;
+	buf[3]=(A_Rcv_to_Snd^C_UA);
+	buf[4]=FLAG;
+
+	res = write(fd[1],buf,5);   
+	printf("enviei trama UA! com %d bytes\n", res);
+	printf("\nConclui com exito a transmissao de pacotes\n");
+
+	return TRUE;
+}
+
+void atende()   // atende alarme
 {
 	passou=TRUE;
 }
 
-void alarme(int n)
-{
-
-	(void) signal(SIGALRM, atende);  // instala  rotina que atende interrupcao
-
-	alarm(n);                 // activa alarme de 3s
-}
-
 int recebe_UA(int fd)
 {
-	char aux;
-	int res=-1;
-	int itt=0;	
-	//leitura da trama para buf
-	while (res!=1)
+	if(l_read(fd)<0)
+		printf("erro de leitura\n");
+	if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_UA && buf[3]==(A_Snd_to_Rcv^C_UA) && buf[4]==FLAG)
 	{
-    	res = read(fd,&aux,1); 
-		if(passou) return FALSE;
+		printf("recebi trama UA!\n");
+		return TRUE;
 	}
-	res=-1;
-	if(aux==FLAG)
+	else
 	{
-		buf[itt]=aux;
-		itt++;
-		aux=0x00;
-		if(passou) return FALSE;
-		while(aux!=FLAG)
-		{
-			while (res!=1)
-			{
-				res = read(fd,&aux,1); 
-				if(passou) return FALSE;
-			}
-			if(passou) return FALSE;
-			res=-1;
-			buf[itt]=aux;
-			itt++;
-		}
-		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_UA && buf[3]==(A_Snd_to_Rcv^C_UA) && buf[4]==FLAG)
-		{
-			printf("recebi trama UA!\n");
-			return TRUE;
-		}
-		printf("recebi trama errada!\n");
+		printf("recebi trama errada! esperava UA\n");
 		return FALSE;
 	}
 }
 
 int recebe_DISC(int fd)
 {
+	if(l_read(fd)<0)
+		printf("erro de leitura\n");
+	
+	if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==(A_Snd_to_Rcv^C_DISC) && buf[4]==FLAG)
+	{
+		printf("recebi trama DISC!\n");
+		return TRUE;
+	}
+	else
+	{
+		printf("recebi trama errada! esperava DISC\n");
+		return FALSE;
+	}
+}
+
+int l_read(int fd)
+{
+	//vamos ler para buf
 	char aux;
-	int res=-1;
-	int itt=0;	
-	//leitura da trama para buf
+	int res;
+	int itt;
+	res=-1;
+	itt=0;
+	while(1)//espera pela primeira flag
+	{
+		while (res!=1)
+		{
+			res = read(fd,&aux,1); 
+			if(passou) return FALSE;
+		}
+		res=-1;
+		if(aux==FLAG)
+		{
+			buf[itt]=aux;
+			break;
+		}
+	}
 	while (res!=1)
 	{
     	res = read(fd,&aux,1); 
 		if(passou) return FALSE;
 	}
 	res=-1;
-	if(aux==FLAG)
+	while(aux==FLAG)//enquanto for flag nao faz nada
 	{
+		while (res!=1)
+		{
+			res = read(fd,&aux,1); 
+			if(passou) return FALSE;
+		}
+		res=-1;
+	}
+	itt++;
+	buf[itt]=aux;//deixou de ser flag, por isso armazena
+	itt++;
+	while(aux!=FLAG)//e os restantes tambem
+	{
+		while (res!=1)
+		{
+			res = read(fd,&aux,1); 
+			if(passou) return FALSE;
+		}
+		res=-1;
 		buf[itt]=aux;
 		itt++;
-		aux=0x00;
-		if(passou) return FALSE;
-		while(aux!=FLAG)
-		{
-			while (res!=1)
-			{
-				res = read(fd,&aux,1); 
-				if(passou) return FALSE;
-			}
-			if(passou) return FALSE;
-			res=-1;
-			buf[itt]=aux;
-			itt++;
-		}
-		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==(A_Snd_to_Rcv^C_DISC) && buf[4]==FLAG)
-		{
-			printf("recebi trama DISC!\n");
-			return TRUE;
-		}
-		printf("recebi trama errada!\n");
-		return FALSE;
+		if(itt>MAX_BYTES) return -1; //se ao fim de max_bytes ainda nao tiver encontrado uma flag, entao da erro
 	}
-
+	return itt;
 }
 
 /*************para mandar uma cadeia de caracteres***********
