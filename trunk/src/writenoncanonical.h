@@ -14,6 +14,8 @@
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
+#define MAX_BYTES 10 //maximo tamanho da trama
+#define MAX_REPEAT 3 //para max num de retransmissoes
 
 #define FIFO_PERMS (S_IRWXU | S_IWGRP | S_IWOTH) 
 #define FIFO_READ O_RDONLY// | O_NONBLOCK
@@ -31,9 +33,12 @@
 #define C_DISC 0x0B
 
 void atende();                   // atende alarme
-void alarme(int n);
 int recebe_UA(int fd);
 int recebe_DISC(int fd);
-void envia_SET(int fd[2]);
-void envia_DISC(int fd[2]);
+
+int llopen(int fd[2]);
+int llclose(int fd[2]);
+
+int l_read(int fd);//le uma trama para buf, retorna o tamanho da trama ou -1 se erro
+
 
