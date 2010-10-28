@@ -5,11 +5,11 @@
 
 volatile int STOP=FALSE;
 int mode;
-char buf[255];
+char buf[255], ultimo_Ni;
 
 int main(int argc, char** argv)
 {
-    int fd[2],c, res;
+    int fd[2];
     struct termios oldtio,newtio;
 
     if ( (argc < 2) || 
@@ -91,6 +91,8 @@ int main(int argc, char** argv)
 
 	llopen(fd);
 
+	//llread
+
 	llclose(fd);
 
 
@@ -117,9 +119,73 @@ int llopen(int fd[2])
 	{
 		printf("recebi trama SET!\n");
 		envia_UA(fd);//envia UA
+		ultimo_Ni=N1;
+		return TRUE;
 	}
 	else
+	{
 		printf("recebi trama errada, esperava SET\n");
+		return FALSE;
+	}
+}
+
+int llread(int fd[2], char * buffer)
+{
+	int res, i, itt2=0;
+	char BCC;
+	//recebe trama I e envia RR
+	res=l_read(fd);//le do ficheiro o
+	if(res<0)
+		return -1;
+	else//leu correctamente
+	{
+		if(ultimo_Ni==N1)
+			ultimo_Ni=N0;
+		else
+			ultimo_Ni=N1;
+
+		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==ultimo_Ni && buf[3]==(buf[1]^buf[2]) && buf[res-1]==FLAG)
+		{//cabecalho correcto
+
+			BCC=buf[4];
+			for(i=4; i<res-2; i++)//depois de chegar aos dados, ha que trata-los
+			{
+				if(buf[i]==0x7d)//operacao de destuffing
+				{
+					if(buf[i+1]==0x5e)
+					{
+						*(buffer+itt2)=FLAG;
+						itt2++;
+						if(i>4)
+							BCC=BCC^FLAG;
+					}
+					else if(buf[i+1]==0x5d)
+					{
+						*(buffer+itt2)=0x7d;
+						itt2++;
+						if(i>4)
+							BCC=BCC^0x7d;
+					}
+				}
+				else
+				{
+					*(buffer+itt2)=buf[i];
+					itt2++;
+					if(i>4)
+						BCC=BCC^buf[i];
+				}
+			}
+			if(BCC==buf[res-2])
+			{
+				envia_RR(fd);
+				return itt2;
+			}
+			else
+				return -1;//enviar REJ
+		}
+		else
+			return -1;//enviar REJ
+	}
 }
 
 int llclose(int fd[2])
@@ -136,7 +202,10 @@ int llclose(int fd[2])
 		printf("enviei trama DISC! com %d bytes\n", res);
 	}
 	else
+	{
 		printf("recebi trama errada, esperava DISC\n");
+		return FALSE;
+	}
 
 	//envia UA final
 	if(l_read(fd)<0)
@@ -145,9 +214,13 @@ int llclose(int fd[2])
 	{
 		printf("recebi trama UA!\n");
 		printf("\nConclui com exito a transmissao de pacotes\n");
+		return TRUE;
 	}
 	else
+	{
 		printf("recebi trama errada, esperava UA\n");
+		return FALSE;
+	}
 }
 
 
@@ -161,6 +234,24 @@ void envia_UA(int fd[2])
 	buf[4]=FLAG;
 	res=write(fd[1],buf,5);
 	printf("enviei trama UA! com %d bytes\n", res);
+}
+
+void envia_RR(int fd[2])
+{
+	buf[0]=FLAG;
+	buf[1]=A_Snd_to_Rcv;
+	if(ultimo_Ni==N1)//parametro Nr 
+		buf[2]=RR0;
+	else
+		buf[2]=RR1;
+	buf[3]=buf[1]^buf[2];
+	buf[4]=FLAG;
+	write(fd[1],buf,5);
+}
+
+void envia_REJ(int fd[2])
+{
+
 }
 
 int l_read(int fd[2])

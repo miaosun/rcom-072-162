@@ -6,14 +6,12 @@
 
 volatile int STOP=FALSE;
 int passou=FALSE, mode;
-char buf[255];
+char buf[255], ultimo_RR;
 
 int main(int argc, char** argv)
 {
-    int fd[2],c, res;
+    int fd[2];
     struct termios oldtio,newtio;
-    
-    int i, sum = 0, speed = 0;
     
     if ( (argc < 2) || 
   	     ((strcmp("/dev/ttyS0", argv[1])!=0) && 
@@ -93,6 +91,8 @@ int main(int argc, char** argv)
 	(void) signal(SIGALRM, atende);  // instala  rotina que atende interrupcao
 	
 	llopen(fd); //envia SET e espera por UA
+
+	//llwrite
 	
 	llclose(fd); //envia DISC e espera por DISC
 
@@ -117,7 +117,7 @@ int main(int argc, char** argv)
 
 int llopen(int fd[2])
 {
-	int res, count=0;
+	int res, count=1;
 	/******************* para mandar trama SET *****************
 	******** criar a trama FLAG A_Snd_to_Rcv C BCC FLAG********/
 	buf[0]=FLAG;
@@ -128,25 +128,99 @@ int llopen(int fd[2])
 
 	res = write(fd[1],buf,5);   
 	printf("enviei trama SET! com %d bytes\n", res);
-	alarm(3);
-	count++;
+	alarm(TIMEOUT);
 	/**************** para receber trama UA ****************/	
 	while(!recebe_UA(fd[0]))
 	{
 		if(!(count<MAX_REPEAT))//se ja repetiu o max nr de vezes, termina com erro
 			return FALSE;
 		passou=FALSE;
-		alarm(3);
+		alarm(TIMEOUT);
 		res = write(fd[1],buf,5);   
 		printf("enviei trama SET! com %d bytes\n", res);
 		count++;
 	}
+	ultimo_RR=RR0;
 	return TRUE;
+}
+
+int llwrite(int fd[2], char * buffer, int length)
+{
+	int itt, itt2=0, res, count=1;
+	char BCC;
+
+	/*envia trama I e se nao receber RR dentro do tempo reenvia um max num d vezes
+	**vamos assumir que esta funcao e chamada cada vez que se quer enviar um subpacote
+	**de dados, portanto este buffer tem que ser enviado de uma so vez
+	*/
+
+	//construcao de uma trama I
+	buf[itt2]=FLAG;
+	itt2++;
+	buf[itt2]=A_Snd_to_Rcv;
+	itt2++;
+	if(ultimo_RR==RR1)//parametro N(s)
+		buf[itt2]=N1;
+	else
+		buf[itt2]=N0;
+	itt2++;
+	buf[itt2]=buf[itt2-2]^buf[itt2-1];
+	itt2++;
+
+	//para percorrer o buffer para ver se se encontra a flag e gerar o bcc
+	BCC=*(buffer);
+	for(itt=0; itt<length; itt++)
+	{	
+		if(*(buffer+itt)==FLAG)//se encontra flag na posicao itt do buffer
+		{//faz byte stuffing e acrescenta a trama que vamos transmitir
+			buf[itt2]=0x7d;
+			itt2++;
+			buf[itt2]=0x5e;
+			itt2++;
+			if(itt>0) 
+				BCC=BCC^FLAG;
+		}
+		else if(*(buffer+itt)==0x7d)
+		{//faz byte stuffing e acrescenta a trama que vamos transmitir
+			buf[itt2]=0x7d;
+			itt2++;
+			buf[itt2]=0x5d;
+			itt2++;
+			if(itt>0) 
+				BCC=BCC^0x7d;
+		}
+		else//senao atribui o valor que esta na posicao itt de buffer a trama que vamos transmitir
+		{
+			buf[itt2]=*(buffer+itt);
+			itt2++;
+			BCC=BCC^*(buffer+itt);
+		}
+	}
+
+	buf[itt2]=BCC;
+	itt2++;
+	buf[itt2]=FLAG;//acabou a trama
+	itt2++;
+	
+	res = write(fd[1],buf,itt2);
+	printf("enviei trama I! com %d bytes\n", res);
+	alarm(TIMEOUT);
+	while(!recebe_RR(fd[0]))//enquanto nao recebe RR como resposta, envia novamente
+	{
+		if(!(count<MAX_REPEAT))//se ja repetiu o max nr de vezes, termina com erro
+			return -1;
+		passou=FALSE;
+		alarm(TIMEOUT);
+		res = write(fd[1],buf,itt2);   
+		printf("enviei trama I! com %d bytes\n", res);
+		count++;
+	}
+	return itt2;//retorna nr de caracteres escritos
 }
 
 int llclose(int fd[2])
 {
-	int res, count=0;
+	int res, count=1;
 	
 	//envia DISC
 	buf[0]=FLAG;
@@ -157,14 +231,13 @@ int llclose(int fd[2])
 	
 	res = write(fd[1],buf,5);   
 	printf("enviei trama DISC! com %d bytes\n", res);
-	alarm(3);
-	count++;
+	alarm(TIMEOUT);
 	while(!recebe_DISC(fd[0]))//enquanto nao recebe DISC como resposta, envia novamente
 	{
 		if(!(count<MAX_REPEAT))//se ja repetiu o max nr de vezes, termina com erro
 			return FALSE;
 		passou=FALSE;
-		alarm(3);
+		alarm(TIMEOUT);
 		res = write(fd[1],buf,5);   
 		printf("enviei trama DISC! com %d bytes\n", res);
 		count++;
@@ -218,6 +291,28 @@ int recebe_DISC(int fd)
 	else
 	{
 		printf("recebi trama errada! esperava DISC\n");
+		return FALSE;
+	}
+}
+
+int recebe_RR(int fd)
+{
+	if(l_read(fd)<0)
+		printf("erro de leitura\n");
+	
+	if(ultimo_RR==RR1)
+		ultimo_RR=RR0;
+	else
+		ultimo_RR=RR1;
+
+	if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==ultimo_RR && buf[3]==(A_Snd_to_Rcv^ultimo_RR) && buf[4]==FLAG)
+	{
+		printf("recebi trama RR!\n");
+		return TRUE;
+	}
+	else
+	{
+		printf("recebi trama errada! esperava RR\n");
 		return FALSE;
 	}
 }
