@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 			printf("failed to open fifo: E_2_R\n");
 			return 1;
   		}
-		printf("abriu fifo de saida\n");
+		printf("abriu fifo de saida\n\n");
 		mode=PIPE;
     }
 	else mode=SERIAL;
@@ -92,7 +92,37 @@ int main(int argc, char** argv)
 	
 	llopen(fd); //envia SET e espera por UA
 
-	//llwrite
+
+
+
+
+
+
+
+	//pedir o ficheiro
+	char * filename;
+	/*printf("Nome do ficheiro: ");
+	scanf(%s, filename);*/
+	filename="1.jpg";
+
+	//enviar pacote start
+	int file, itt=0, it=0;
+	file=open(filename, O_RDONLY);
+	char pack[255];
+	pack[itt++]='1';
+	pack[itt++]='1';
+	pack[itt++]='5';
+	pack[itt++]='1';
+	pack[itt++]='.';
+	pack[itt++]='j';
+	pack[itt++]='p';
+	pack[itt++]='g';
+	llwrite(fd, pack, itt);
+
+	//desfazer o ficheiro
+	//enviar pacotes de dados
+
+	//enviar pacote end
 	
 	llclose(fd); //envia DISC e espera por DISC
 
@@ -193,7 +223,8 @@ int llwrite(int fd[2], char * buffer, int length)
 		{
 			buf[itt2]=*(buffer+itt);
 			itt2++;
-			BCC=BCC^*(buffer+itt);
+			if(itt>0)
+				BCC=BCC^*(buffer+itt);
 		}
 	}
 

@@ -5,12 +5,15 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
 
 #define BAUDRATE B38400
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
-#define MAX_BYTES 10 //maximo tamanho da trama
+#define MAX_BYTES 25 //maximo tamanho da trama
 
 #define SERIAL 1
 #define PIPE 0
@@ -41,3 +44,6 @@ int llclose(int fd[2]);
 void envia_UA(int fd[2]);
 void envia_RR(int fd[2]);
 void envia_REJ(int fd[2]);
+
+int start(int fd[2]);
+int receive(int fd[2], int filedes);

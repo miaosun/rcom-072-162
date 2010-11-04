@@ -7,6 +7,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <string.h>
 
 
 #define BAUDRATE B38400
@@ -14,7 +16,7 @@
 #define _POSIX_SOURCE 1 /* POSIX compliant source */
 #define FALSE 0
 #define TRUE 1
-#define MAX_BYTES 10 //maximo tamanho da trama
+#define MAX_BYTES 25 //maximo tamanho da trama
 #define MAX_REPEAT 3 //para max num de retransmissoes
 #define TIMEOUT 3 //segundos para esperar antes de retransmitir
 
