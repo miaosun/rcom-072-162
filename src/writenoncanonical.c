@@ -93,12 +93,6 @@ int main(int argc, char** argv)
 	llopen(fd); //envia SET e espera por UA
 
 
-
-
-
-
-
-
 	//pedir o ficheiro
 	char * filename;
 	/*printf("Nome do ficheiro: ");
@@ -106,23 +100,51 @@ int main(int argc, char** argv)
 	filename="1.jpg";
 
 	//enviar pacote start
-	int file, itt=0, it=0;
-	file=open(filename, O_RDONLY);
+	int file, itt=0, it=0, ca;
 	char pack[255];
-	pack[itt++]='1';
-	pack[itt++]='1';
-	pack[itt++]='5';
-	pack[itt++]='1';
-	pack[itt++]='.';
-	pack[itt++]='j';
-	pack[itt++]='p';
-	pack[itt++]='g';
-	llwrite(fd, pack, itt);
+	FILE * fstream;
 
-	//desfazer o ficheiro
-	//enviar pacotes de dados
+	file=open(filename, O_RDONLY);
+	
+	if(file>0)
+	{
+		printf("abri ficheiro: %s\n", filename);
+	
+		pack[itt++]='1';
+		pack[itt++]='1';
+		pack[itt++]='5';//problema desta implementacao e que so vai ate 9
+		pack[itt++]='1';
+		pack[itt++]='.';
+		pack[itt++]='j';
+		pack[itt++]='p';
+		pack[itt++]='g';
 
-	//enviar pacote end
+		llwrite(fd, pack, itt);
+
+		//desfazer o ficheiro
+		//enviar pacotes de dados
+		fstream=fdopen(file, "r");
+		if(fstream==NULL) printf("erro a abrir ficheiro\n");
+		ca=fgetc(fstream);
+		if(ca!=EOF) printf("vou comecar a enviar o ficheiro\n");
+		while(ca!=EOF)
+		{
+			pack[0]='0';
+			pack[1]=(char)ca;
+			if(ca!=EOF)
+				llwrite(fd, pack, 2);
+			ca=fgetc(fstream);
+		}
+
+
+		//enviar pacote end
+		pack[0]='3';
+		llwrite(fd, pack, 1);
+
+	}
+	else
+		printf("falha a abrir ficheiro: %s\n", filename);
+	
 	
 	llclose(fd); //envia DISC e espera por DISC
 
@@ -176,7 +198,7 @@ int llopen(int fd[2])
 
 int llwrite(int fd[2], char * buffer, int length)
 {
-	int itt, itt2=0, res, count=1;
+	int itt=0, itt2=0, res, count=1;
 	char BCC;
 
 	/*envia trama I e se nao receber RR dentro do tempo reenvia um max num d vezes

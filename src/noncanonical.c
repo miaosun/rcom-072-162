@@ -92,13 +92,14 @@ int main(int argc, char** argv)
 	llopen(fd);
 
 
-
+	//start
 	int filedes;
 	filedes=start(fd);
 	if(filedes>0)
+	{
 		printf("criei ficheiro!\n");
-
-
+		while(receive(fd, filedes)){}
+	}
 
 	llclose(fd);
 
@@ -109,6 +110,9 @@ int main(int argc, char** argv)
 	else 
 		close(fd[1]);
 
+	if(filedes>0)
+		close(filedes);
+
 	close(fd[0]);
 
     return 0;
@@ -117,9 +121,9 @@ int main(int argc, char** argv)
 int start(int fd[2])
 {
 	int res, aux;
-	char pack[255], ca;
+	char pack[WORD_MAX], ca;
 	int i;
-	char filename[255];
+	char filename[WORD_MAX], fn2[WORD_MAX];
 	//printf("start\n");
 	res=llread(fd, pack);
 	while(res<0)
@@ -143,17 +147,44 @@ int start(int fd[2])
 			if(3+i==res)
 			{
 				printf("%s\n", filename);
-				return open(filename, O_RDWR | O_CREAT);
+				sprintf(fn2, "copy_of_%s", filename);
+				return open(fn2, O_RDWR | O_CREAT);
 			}
 		}
 	}
 	else
 		return -1;
+	return 0;
 }
 
 int receive(int fd[2], int filedes)
 {
+	int res, aux;
+	char pack[WORD_MAX], ca;
+	int i;
 
+	res=llread(fd, pack);
+	while(res<0)
+		res=llread(fd, pack);
+	//ca=pack[0];
+	//aux=atoi(&ca);
+	printf("primeiro: %d\n", aux);
+	printf("tamanho: %d\n", res);
+	if(aux=='0')
+	{
+		if(res==2)
+		{
+			write(filedes, pack[1], 1);
+			printf("gravei no ficheiro!\n");
+			return TRUE;
+		}
+	}
+	else if(aux==3)//fim de transmissao
+	{
+		printf("fim de transmissao\n");
+		return FALSE;
+	}
+	return FALSE;
 }
 
 int llopen(int fd[2])
