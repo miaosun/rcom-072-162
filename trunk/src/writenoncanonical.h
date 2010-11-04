@@ -34,6 +34,8 @@
 #define C_DISC 0x0B
 #define RR0 0x01
 #define RR1 0x21
+#define REJ0 0x05
+#define REJ1 0x25
 #define N0 0x00
 #define N1 0x02
 
