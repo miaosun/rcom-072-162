@@ -14,6 +14,7 @@
 #define FALSE 0
 #define TRUE 1
 #define MAX_BYTES 25 //maximo tamanho da trama
+#define WORD_MAX 255
 
 #define SERIAL 1
 #define PIPE 0
