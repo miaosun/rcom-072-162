@@ -170,16 +170,16 @@ int receive(int fd[2], int filedes)
 	//aux=atoi(&ca);
 	printf("primeiro: %d\n", aux);
 	printf("tamanho: %d\n", res);
-	if(aux=='0')
+	if(pack[0]=='0')
 	{
 		if(res==2)
 		{
-			write(filedes, pack[1], 1);
+			write(filedes, pack+1, 1);
 			printf("gravei no ficheiro!\n");
 			return TRUE;
 		}
 	}
-	else if(aux==3)//fim de transmissao
+	else if(pack[0]=='3')//fim de transmissao
 	{
 		printf("fim de transmissao\n");
 		return FALSE;
@@ -240,6 +240,7 @@ int llread(int fd[2], char * buffer)
 						itt2++;
 						if(i>4)
 							BCC=BCC^FLAG;
+						i++;
 					}
 					else if(buf[i+1]==0x5d)
 					{
@@ -247,6 +248,7 @@ int llread(int fd[2], char * buffer)
 						itt2++;
 						if(i>4)
 							BCC=BCC^0x7d;
+						i++;
 					}
 				}
 				else
