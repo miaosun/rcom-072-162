@@ -150,8 +150,8 @@ int llwrite(int fd[2], char * buffer, int length)
 	char BCC;
 
 	/*envia trama I e se nao receber RR dentro do tempo reenvia um max num d vezes
-	**vamos assumir que esta funcao e chamada cada vez que se quer enviar um subpacote
-	**de dados, portanto este buffer tem que ser enviado de uma so vez
+	* vamos assumir que esta funcao e chamada cada vez que se quer enviar um subpacote
+	* de dados, portanto este buffer tem que ser enviado de uma so vez
 	*/
 
 	//construcao de uma trama I
@@ -298,7 +298,10 @@ int recebe_DISC(int fd)
 int recebe_RR(int fd)
 {
 	if(l_read(fd)<0)
+	{
 		printf("erro de leitura\n");
+		return FALSE;
+	}
 	
 	if(ultimo_RR==RR1)
 		ultimo_RR=RR0;
@@ -330,7 +333,7 @@ int l_read(int fd)
 		while (res!=1)
 		{
 			res = read(fd,&aux,1); 
-			if(passou) return FALSE;
+			if(passou) return -1;
 		}
 		res=-1;
 		if(aux==FLAG)
@@ -342,7 +345,7 @@ int l_read(int fd)
 	while (res!=1)
 	{
     	res = read(fd,&aux,1); 
-		if(passou) return FALSE;
+		if(passou) return -1;
 	}
 	res=-1;
 	while(aux==FLAG)//enquanto for flag nao faz nada
@@ -350,7 +353,7 @@ int l_read(int fd)
 		while (res!=1)
 		{
 			res = read(fd,&aux,1); 
-			if(passou) return FALSE;
+			if(passou) return -1;
 		}
 		res=-1;
 	}
@@ -362,7 +365,7 @@ int l_read(int fd)
 		while (res!=1)
 		{
 			res = read(fd,&aux,1); 
-			if(passou) return FALSE;
+			if(passou) return -1;
 		}
 		res=-1;
 		buf[itt]=aux;
@@ -380,6 +383,7 @@ int l_read(int fd)
 
 	res = write(fd,buf,itt+1);   
     printf("%d bytes written\n", res);
+
 ***********************************************************/
 
 /************* para receber uma cadeia de caracteres ****************

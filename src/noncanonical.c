@@ -136,7 +136,10 @@ int llread(int fd[2], char * buffer)
 	//recebe trama I e envia RR
 	res=l_read(fd);//le do ficheiro o
 	if(res<0)
+	{
+		envia_REJ(fd);
 		return -1;
+	}
 	else//leu correctamente
 	{
 		if(ultimo_Ni==N1)
@@ -181,10 +184,16 @@ int llread(int fd[2], char * buffer)
 				return itt2;
 			}
 			else
-				return -1;//enviar REJ
+			{
+				envia_REJ(fd);//enviar REJ
+				return -1;
+			}
 		}
 		else
-			return -1;//enviar REJ
+		{
+			envia_REJ(fd);//enviar REJ
+			return -1;
+		}
 	}
 }
 
@@ -198,7 +207,7 @@ int llclose(int fd[2])
 	if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==C_DISC && buf[3]==(A_Snd_to_Rcv^C_DISC) && buf[4]==FLAG) //se no buffer ja esta a trama toda comecando e acabando na FLAG, entao informa que recebeu e reenvia
 	{
 		printf("recebi trama DISC!\n");
-		res=write(fd[1],buf,5); 									//envia trama DISC
+		res=write(fd[1],buf,5); //envia trama DISC
 		printf("enviei trama DISC! com %d bytes\n", res);
 	}
 	else
@@ -251,7 +260,15 @@ void envia_RR(int fd[2])
 
 void envia_REJ(int fd[2])
 {
-
+	buf[0]=FLAG;
+	buf[1]=A_Snd_to_Rcv;
+	if(ultimo_Ni==N1)//parametro Nr 
+		buf[2]=REJ0;
+	else
+		buf[2]=REJ1;
+	buf[3]=buf[1]^buf[2];
+	buf[4]=FLAG;
+	write(fd[1],buf,5);
 }
 
 int l_read(int fd[2])
