@@ -34,7 +34,7 @@ int main(int argc, char** argv)
 			printf("failed to open fifo: E_2_R\n");
 			return 1;
   		}
-		printf("abriu fifo de entrada\n");
+		printf("abriu fifo de entrada\n\n");
 		mode=PIPE;
     }
 	else mode=SERIAL;
@@ -91,14 +91,17 @@ int main(int argc, char** argv)
 
 	llopen(fd);
 
-	//llread
+
+
+	int filedes;
+	filedes=start(fd);
+	if(filedes>0)
+		printf("criei ficheiro!\n");
+
+
 
 	llclose(fd);
 
-
-  /* 
-    O ciclo WHILE deve ser alterado de modo a respeitar o indicado no guião 
-  */
 
 	sleep(2);
 	if(mode==SERIAL)
@@ -109,6 +112,48 @@ int main(int argc, char** argv)
 	close(fd[0]);
 
     return 0;
+}
+
+int start(int fd[2])
+{
+	int res, aux;
+	char pack[255], ca;
+	int i;
+	char filename[255];
+	//printf("start\n");
+	res=llread(fd, pack);
+	while(res<0)
+		res=llread(fd, pack);
+	ca=pack[0];
+	aux=atoi(&ca);
+	printf("pack: %s\n", pack);
+	printf("primeiro: %i\n", aux);
+	if(aux==1)
+	{
+		printf("pacote start\n");
+		ca=pack[1];
+		aux=atoi(&ca);
+		if(aux==1)
+		{
+			printf("pacote filename: ");
+			ca=pack[2];
+			aux=atoi(&ca);
+			for(i=0; i<aux; i++)
+				filename[i]=pack[3+i];
+			if(3+i==res)
+			{
+				printf("%s\n", filename);
+				return open(filename, O_RDWR | O_CREAT);
+			}
+		}
+	}
+	else
+		return -1;
+}
+
+int receive(int fd[2], int filedes)
+{
+
 }
 
 int llopen(int fd[2])
@@ -138,6 +183,7 @@ int llread(int fd[2], char * buffer)
 	if(res<0)
 	{
 		envia_REJ(fd);
+		printf("erro de leitura\n");
 		return -1;
 	}
 	else//leu correctamente
@@ -146,15 +192,17 @@ int llread(int fd[2], char * buffer)
 			ultimo_Ni=N0;
 		else
 			ultimo_Ni=N1;
+		
 
 		if(buf[0]==FLAG && buf[1]==A_Snd_to_Rcv && buf[2]==ultimo_Ni && buf[3]==(buf[1]^buf[2]) && buf[res-1]==FLAG)
 		{//cabecalho correcto
-
+			//printf("recebi trama I com %d bytes!\n", res);
 			BCC=buf[4];
 			for(i=4; i<res-2; i++)//depois de chegar aos dados, ha que trata-los
 			{
 				if(buf[i]==0x7d)//operacao de destuffing
 				{
+					printf("destuffing...\n");
 					if(buf[i+1]==0x5e)
 					{
 						*(buffer+itt2)=FLAG;
@@ -180,6 +228,7 @@ int llread(int fd[2], char * buffer)
 			}
 			if(BCC==buf[res-2])
 			{
+				printf("recebi trama I com %d bytes\n", res);
 				envia_RR(fd);
 				return itt2;
 			}
@@ -256,6 +305,7 @@ void envia_RR(int fd[2])
 	buf[3]=buf[1]^buf[2];
 	buf[4]=FLAG;
 	write(fd[1],buf,5);
+	printf("enviei trama RR!\n");
 }
 
 void envia_REJ(int fd[2])
@@ -269,6 +319,7 @@ void envia_REJ(int fd[2])
 	buf[3]=buf[1]^buf[2];
 	buf[4]=FLAG;
 	write(fd[1],buf,5);
+	printf("enviei trama REJ!\n");
 }
 
 int l_read(int fd[2])
