@@ -269,7 +269,7 @@ int llread(int fd[2], char * buffer)
 					if(i>4&&i<res-2-count)
 						BCC=BCC^buf[i];
 				}
-				printf("BCC2: %x\n", BCC);
+				//printf("BCC2: %x\n", BCC);
 			}
 			if(BCC==buffer[itt2-1])
 			{
@@ -280,7 +280,7 @@ int llread(int fd[2], char * buffer)
 			else
 			{
 				printf("BCC2 errado: %x, devia ser: %x\n",BCC, buffer[itt2-1]);
-				//envia_REJ(fd);//enviar REJ
+				envia_REJ(fd);//enviar REJ
 				return -1;
 			}
 		}
