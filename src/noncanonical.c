@@ -100,6 +100,11 @@ int main(int argc, char** argv)
 		printf("criei ficheiro!\n");
 		while(receive(fd, filedes)){}
 	}
+	else
+	{
+		printf("erro ao criar ficheiro!\n");
+		return 0;
+	}
 
 	llclose(fd);
 
@@ -207,7 +212,7 @@ int llopen(int fd[2])
 
 int llread(int fd[2], char * buffer)
 {
-	int res, i, itt2=0;
+	int res, i, itt2=0, count=0;
 	char BCC;
 	//recebe trama I e envia RR
 	res=l_read(fd);//le do ficheiro o
@@ -219,6 +224,10 @@ int llread(int fd[2], char * buffer)
 	}
 	else//leu correctamente
 	{
+		int itf;
+		for(itf=0; itf<res; itf++)
+			printf("%x|", buf[itf]);
+		printf("\n");
 		if(ultimo_Ni==N1)
 			ultimo_Ni=N0;
 		else
@@ -229,51 +238,56 @@ int llread(int fd[2], char * buffer)
 		{//cabecalho correcto
 			//printf("recebi trama I com %d bytes!\n", res);
 			BCC=buf[4];
-			for(i=4; i<res-2; i++)//depois de chegar aos dados, ha que trata-los
+			for(i=4; i<res-1; i++)//depois de chegar aos dados, ha que trata-los
 			{
 				if(buf[i]==0x7d)//operacao de destuffing
 				{
-					printf("destuffing...\n");
+					count++;
 					if(buf[i+1]==0x5e)
 					{
-						*(buffer+itt2)=FLAG;
+						printf("-destuffing de flag\n");
+						buffer[itt2]=FLAG;
 						itt2++;
-						if(i>4)
+						if(i>4&&i<res-2-count)
 							BCC=BCC^FLAG;
 						i++;
 					}
 					else if(buf[i+1]==0x5d)
 					{
-						*(buffer+itt2)=0x7d;
+						printf("-destuffing de 0x7d\n");
+						buffer[itt2]=0x7d;
 						itt2++;
-						if(i>4)
+						if(i>4&&i<res-2-count)
 							BCC=BCC^0x7d;
 						i++;
 					}
 				}
 				else
 				{
-					*(buffer+itt2)=buf[i];
+					buffer[itt2]=buf[i];
 					itt2++;
-					if(i>4)
+					if(i>4&&i<res-2-count)
 						BCC=BCC^buf[i];
 				}
+				printf("BCC2: %x\n", BCC);
 			}
-			if(BCC==buf[res-2])
+			if(BCC==buffer[itt2-1])
 			{
 				printf("recebi trama I com %d bytes\n", res);
 				envia_RR(fd);
-				return itt2;
+				return itt2-1;
 			}
 			else
 			{
-				envia_REJ(fd);//enviar REJ
+				printf("BCC2 errado: %x, devia ser: %x\n",BCC, buffer[itt2-1]);
+				//envia_REJ(fd);//enviar REJ
 				return -1;
 			}
 		}
 		else
 		{
-			envia_REJ(fd);//enviar REJ
+			printf("cabecalho errado!\n");
+			//envia_REJ(fd);//enviar REJ
 			return -1;
 		}
 	}

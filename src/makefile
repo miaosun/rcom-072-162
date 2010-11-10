@@ -29,4 +29,5 @@ clean:
 	-rm rece
 	-rm E_2_R
 	-rm R_2_E
+	-rm copy_of_1.jpg
 	clear
