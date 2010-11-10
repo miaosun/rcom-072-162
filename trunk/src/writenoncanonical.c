@@ -189,7 +189,7 @@ int llopen(int fd[2])
 		passou=FALSE;
 		alarm(TIMEOUT);
 		res = write(fd[1],buf,5);   
-		printf("enviei trama SET! com %d bytes\n", res);
+		printf("Re-enviei trama SET! com %d bytes\n", res);
 		count++;
 	}
 	ultimo_RR=RR0;
@@ -220,11 +220,12 @@ int llwrite(int fd[2], char * buffer, int length)
 	itt2++;
 
 	//para percorrer o buffer para ver se se encontra a flag e gerar o bcc
-	BCC=*(buffer);
+	BCC=buffer[0];
 	for(itt=0; itt<length; itt++)
 	{	
-		if(*(buffer+itt)==FLAG)//se encontra flag na posicao itt do buffer
+		if(buffer[itt]==FLAG)//se encontra flag na posicao itt do buffer
 		{//faz byte stuffing e acrescenta a trama que vamos transmitir
+			printf("com stuffing de flag:\n");
 			buf[itt2]=0x7d;
 			itt2++;
 			buf[itt2]=0x5e;
@@ -232,8 +233,9 @@ int llwrite(int fd[2], char * buffer, int length)
 			if(itt>0) 
 				BCC=BCC^FLAG;
 		}
-		else if(*(buffer+itt)==0x7d)
+		else if(buffer[itt]==0x7d)
 		{//faz byte stuffing e acrescenta a trama que vamos transmitir
+			printf("com stuffing de 0x7d:\n");
 			buf[itt2]=0x7d;
 			itt2++;
 			buf[itt2]=0x5d;
@@ -243,18 +245,39 @@ int llwrite(int fd[2], char * buffer, int length)
 		}
 		else//senao atribui o valor que esta na posicao itt de buffer a trama que vamos transmitir
 		{
-			buf[itt2]=*(buffer+itt);
+			buf[itt2]=buffer[itt];
 			itt2++;
 			if(itt>0)
-				BCC=BCC^*(buffer+itt);
+				BCC=BCC^buffer[itt];
 		}
 	}
 
-	buf[itt2]=BCC;
-	itt2++;
+	if(BCC==FLAG)
+	{
+		buf[itt2]=0x7d;
+		itt2++;
+		buf[itt2]=0x5e;
+		itt2++;
+	}
+	else if(BCC==0x7d)
+	{
+		buf[itt2]=0x7d;
+		itt2++;
+		buf[itt2]=0x5d;
+		itt2++;
+	}
+	else
+	{
+		buf[itt2]=BCC;
+		itt2++;
+	}
 	buf[itt2]=FLAG;//acabou a trama
 	itt2++;
-	
+
+	int i;
+	for(i=0; i<itt2; i++)
+		printf("%x|",buf[i]);	
+	printf("\n");
 	res = write(fd[1],buf,itt2);
 	printf("enviei trama I! com %d bytes\n", res);
 	alarm(TIMEOUT);
@@ -265,7 +288,7 @@ int llwrite(int fd[2], char * buffer, int length)
 		passou=FALSE;
 		alarm(TIMEOUT);
 		res = write(fd[1],buf,itt2);   
-		printf("enviei trama I! com %d bytes\n", res);
+		printf("Re-enviei trama I! com %d bytes\n", res);
 		count++;
 	}
 	return itt2;//retorna nr de caracteres escritos
@@ -292,7 +315,7 @@ int llclose(int fd[2])
 		passou=FALSE;
 		alarm(TIMEOUT);
 		res = write(fd[1],buf,5);   
-		printf("enviei trama DISC! com %d bytes\n", res);
+		printf("Re-enviei trama DISC! com %d bytes\n", res);
 		count++;
 	}
 
