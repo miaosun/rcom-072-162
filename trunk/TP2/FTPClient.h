@@ -17,3 +17,8 @@
 int askCmd(char * buffer);
 int parseCmd(char * buffer);
 void clear_last_cmd(char** com);
+int exec_cmd(char ** com);
+int connect(char * hostname);
+int authenticate(void);
+int getFile(char * filename);
+int disconnect(char * filename);
