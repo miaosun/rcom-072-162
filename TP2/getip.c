@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <netinet/in.h> 
 
-int main(int argc, char *argv[])
+char getHostName(char name)
 {
 	struct hostent *h;
 
@@ -27,7 +27,7 @@ struct hostent {
 
 #define h_addr h_addr_list[0]	The first address in h_addr_list. 
 */
-        if ((h=gethostbyname(argv[1])) == NULL) {  
+        if ((h=gethostbyname(name)) == NULL) {  
             herror("gethostbyname");
             exit(1);
         }
@@ -35,5 +35,5 @@ struct hostent {
         printf("Host name  : %s\n", h->h_name);
         printf("IP Address : %s\n",inet_ntoa(*((struct in_addr *)h->h_addr)));
 
-        return 0;
+        return h->h_name;
 }
