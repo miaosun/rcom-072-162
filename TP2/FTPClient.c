@@ -1,6 +1,5 @@
 #include "FTPClient.h"
-#include "getip.c"
-#include "clientTCP.c"
+
 
 #define SERVER_PORT 21
 #define SERVER_ADDR "192.168.28.96"
@@ -11,27 +10,27 @@ char ** cmds;
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
 	int socket_source, socket_destino;	//sockets source e destino
-	char * hostname = getHostName(*argv[0]);
 	int validado = 0;
+	
+	if(argc!=2)
+	{
+		printf("usage: ./FTPClient server_address.domain.com\n");
+		return 0;
+	}
 	
 	//-------------ligar os sockets-------------------------
 	printf("A ligar ao servidor 1\n");
-	socketcsrc = connect(argv[1], 21);
-	if (socket_source < 0) {
-		printf("Error connecting server1.\n");
+	socket_source = ligar(argv[1], 21);
+	if (socket_source < 0) 
+	{
+		printf("Error connecting server %s.\n", argv[1]);
 		return 0;
-	} else {
+	} 
+	else 
+	{
 		printf("FTP connection estabelecida em: %s\n", argv[1]);
 	}
 	
-	printf("A ligar ao servidor 2\n");
-	socketcdst = connect(argv[2], 21);
-	if (socket_destino < 0) {
-		printf("Erro na conexão ao servidor 2.\n");
-		return 0;
-	} else {
-		printf("FTP connection estabelecida em: %s\n", argv[2]);
-	}
 	//FIM -------------- ligar os sockets ------------------- FIM
 	
 	
@@ -42,12 +41,9 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 		}
 	}while(validado==0);
 
-	if(getFile() == 0){
-		printf("O ficheiro não existe.");
-	}
 
 	//deligar a ligação dos sockets
-	disconnect(socketc_source, socketc_destino);
+	disconnect(socket_source);
 
 	return 0;
 }
@@ -58,11 +54,12 @@ int exec_cmd(char ** com)//executa o comando
 	return 0;
 }
 
-int connect(char * hostname)//fazer a ligacao ao servidor, atravez de sockets, abrir canal de comunicacao com o servidor
+int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de sockets, abrir canal de comunicacao com o servidor
 {
 	int	sockfd;
 	struct	sockaddr_in server_addr;
 	struct hostent *h;
+	char * serverIP;
 
 	h = gethostbyname(hostname);
 	if (h == NULL) {  
@@ -70,7 +67,7 @@ int connect(char * hostname)//fazer a ligacao ao servidor, atravez de sockets, a
             return -1;
     }
 	
-	serverIP = inet_ntoa(*((struct in_addr *) serverinfo->h_addr));
+	serverIP = inet_ntoa(*((struct in_addr *) h->h_addr));
 
 	/*server address handling*/
 	bzero((char*)&server_addr,sizeof(server_addr));
@@ -86,8 +83,7 @@ int connect(char * hostname)//fazer a ligacao ao servidor, atravez de sockets, a
 	/*connect to the server*/
     	if(connect(sockfd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0){
         	perror("connect()");
-			shutdown(socketc,SHUT_RDWR);
-			close(socketc);
+			disconnect(sockfd);
 			return -1;
 	}
 	
@@ -97,22 +93,22 @@ int connect(char * hostname)//fazer a ligacao ao servidor, atravez de sockets, a
 
 int authenticate(void)//autenticar-se no servidor com sucesso, username e password
 {
-
+	return 0;
 }
 
 
 int getFile(char * filename)//fazer download do ficheiro
 {
-
+	return 0;
 }
 
 
-int disconnect(int socketc_source,int socketc_destino)//fechar a ligacao
+int disconnect(int socket_fd)//fechar a ligacao
 {
-	shutdown(socket_source,SHUT_RDWR);
-	shutdown(socket_destino,SHUT_RDWR);
-	close(socket_source);
-	close(socket_destino);
+	//shutdown(socket,SHUT_RDWR);
+	close(socket_fd);
+	close(socket_fd);
+	return 0;
 }
 
 int askCmd(char * buffer)//pede o comando e preenche-o no buffer
