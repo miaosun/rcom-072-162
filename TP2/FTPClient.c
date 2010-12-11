@@ -282,17 +282,11 @@ int con_pasv(void)
 	return ligar(addr, port);
 }
 
-int authenticate(void)//autenticar-se no servidor com sucesso, username e password
-{
-	return 0;
-}
-
 
 int getFile(char * filename)//fazer download do ficheiro
 {
 	return 0;
 }
-
 
 int disconnect(int socket_fd)//fechar a ligacao
 {
@@ -301,47 +295,3 @@ int disconnect(int socket_fd)//fechar a ligacao
 	close(socket_fd);
 	return 0;
 }
-
-
-/*int askCmd(char * buffer)//pede o comando e preenche-o no buffer
-{
-	printf(">> ");
-	scanf("%s", buffer);
-	return 0;
-}
-
-
-int parseCmd(char * buffer)//interpreta o comando e preenche a o array de comandos
-{
-	char* tokens;
-	int itt = 0;
-
-	tokens=strtok(buffer," ");
-	while (tokens != NULL) {
-		cmds[itt] = tokens;		
-		tokens = strtok (NULL, " ");
-		itt++;			
-	}
-	cmds[itt] = NULL;
-
-	//printf(">> formatou linha comandos\n");
-	return 0;
-}
-
-
-void clear_last_cmd(char** com) //limpa o ultimo comando armazenado em cmds
-{
-	int itt;
-	for(itt=0;com[itt] != NULL;itt++)
-		com[itt] = NULL;
-	//printf(">> limpou linha comandos\n");
-}
-
-int exec_cmd(char ** com)//executa o comando
-{
-
-	return 0;
-}
-
-*/
-
