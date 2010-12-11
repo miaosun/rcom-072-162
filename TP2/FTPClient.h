@@ -15,7 +15,7 @@
 
 
 
-#define MAX_CMD_LEN 255
+#define MAX_MSG_LEN 255
 #define MAX_WORD_LEN 20
 
 #define PRINT_BLUE(format,args...) printf("\033[34m"format"\033[0m", ##args);
@@ -25,6 +25,8 @@ int askCmd(char * buffer);
 int parseCmd(char * buffer);
 void clear_last_cmd(char** com);
 int exec_cmd(char ** com);
+
+int recebe(int sock_fd);
 int ligar(char * hostname, int port);
 int authenticate(void);
 int getFile(char * filename);
