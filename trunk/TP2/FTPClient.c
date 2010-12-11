@@ -10,7 +10,8 @@ char ** cmds;
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
 	int socket_source, socket_destino;	//sockets source e destino
-	int validado = 0;
+	int validado = 0, res;
+	char buffer[MAX_CMD_LEN];
 	
 	if(argc!=2)
 	{
@@ -19,11 +20,11 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	}
 	
 	//-------------ligar os sockets-------------------------
-	printf("A ligar ao servidor 1\n");
+	printf("A ligar ao servidor %s\n", argv[1]);
 	socket_source = ligar(argv[1], 21);
 	if (socket_source < 0) 
 	{
-		printf("Error connecting server %s.\n", argv[1]);
+		PRINT_ERROR("Error connecting server %s.\n", argv[1]);
 		return 0;
 	} 
 	else 
@@ -33,6 +34,17 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	
 	//FIM -------------- ligar os sockets ------------------- FIM
 	
+	res=read(socket_source,buffer,255);
+	if(res>0)
+	{
+		PRINT_BLUE(">>%s\n", buffer);
+		return 0;
+	}
+	else
+	{
+		PRINT_ERROR("nao conseguiu ler a mensagem do servidor!\n");
+		return 0;
+	}
 	
 	do{
 		validado = authenticate();
@@ -68,12 +80,14 @@ int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de so
     }
 	
 	serverIP = inet_ntoa(*((struct in_addr *) h->h_addr));
+	
+	printf("IP: %s\n", serverIP);
 
 	/*server address handling*/
 	bzero((char*)&server_addr,sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
-	//server_addr.sin_addr.s_addr = inet_addr(SERVER_ADDR);	/*32 bit Internet address network byte ordered*/
-	server_addr.sin_port = htons(SERVER_PORT);		/*server TCP port must be network byte ordered */
+	server_addr.sin_addr.s_addr = inet_addr(serverIP);	/*32 bit Internet address network byte ordered*/
+	server_addr.sin_port = htons(port);		/*server TCP port must be network byte ordered */
 	
 	/*open an TCP socket*/
 	if ((sockfd = socket(AF_INET,SOCK_STREAM,0)) < 0) {
@@ -110,6 +124,7 @@ int disconnect(int socket_fd)//fechar a ligacao
 	close(socket_fd);
 	return 0;
 }
+
 
 int askCmd(char * buffer)//pede o comando e preenche-o no buffer
 {
