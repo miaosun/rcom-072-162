@@ -9,10 +9,9 @@ char ** path;
 
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
-	int socket_source, res, i=0;	//sockets source e destino
+	int socket_source, i=0;	//sockets source e destino
 	char * buf;
 	
-	buf=malloc(MAX_MSG_LEN);
 	user=malloc(MAX_MSG_LEN);
 	pass=malloc(MAX_MSG_LEN);
 	addr=malloc(MAX_MSG_LEN);
@@ -24,10 +23,8 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 		return 0;
 	}
 	
-	buf=argv[1];
 	
-	res=parse_addr(buf);
-	if(res<0)
+	if(parse_addr(argv[1])<0)
 		return 0;
 	printf("host: %s\n", addr);
 	printf("user: %s\n", user);
@@ -37,20 +34,20 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 		printf("path %i: %s\n", i, path[i]);
 		i++;		
 	}
-	return 0;
+
 	
 	
 	//-------------ligar os sockets-------------------------
 	printf("A ligar ao servidor %s\n", argv[1]);
-	socket_source = ligar(argv[1], 21);
+	socket_source = ligar(addr, 21);
 	if (socket_source < 0) 
 	{
-		PRINT_ERROR("Error connecting server %s.\n", argv[1]);
+		PRINT_ERROR("Error connecting server %s:21.\n", addr);
 		return 0;
 	} 
 	else 
 	{
-		printf("FTP connection estabelecida em: %s\n", argv[1]);
+		printf("FTP connection estabelecida em: %s:21\n", addr);
 	}
 	
 	//FIM -------------- ligar os sockets ------------------- FIM
@@ -59,12 +56,12 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	recebe(socket_source);
 	
 	//envia utilizador
-	sprintf(buf,"USER anonymous\n");
+	sprintf(buf,"USER %s\n", user);
 	write(socket_source, buf, strlen(buf));
 	recebe(socket_source);
 	
 	//envia password
-	sprintf(buf,"PASS ei08072@fe.up.pt\n");
+	sprintf(buf,"PASS %s\n", pass);
 	write(socket_source, buf, strlen(buf));
 	recebe(socket_source);
 	
