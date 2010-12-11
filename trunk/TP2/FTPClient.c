@@ -9,7 +9,7 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	int socket_source;	//sockets source e destino
 	char * buf;
 	
-	if(argc!=4)
+	if(argc!=2)
 	{
 		printf("usage: ./FTPClient server_address.domain.com\n");
 		return 0;
@@ -34,23 +34,26 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	recebe(socket_source);
 	
 	//envia utilizador
-	sprintf(buf,"USER %s\n", argv[2]);
+	sprintf(buf,"USER anonymous\n");
 	write(socket_source, buf, strlen(buf));
 	recebe(socket_source);
 	
 	//envia password
-	sprintf(buf,"PASS %s\n", argv[3]);
+	sprintf(buf,"PASS ei08072@fe.up.pt\n");
 	write(socket_source, buf, strlen(buf));
 	recebe(socket_source);
 	
+	//entra em modo passivo
+	sprintf(buf,"PASV\n");
+	write(socket_source, buf, strlen(buf));
+	recebe(socket_source);
+
 
 	//deligar a ligação dos sockets
 	disconnect(socket_source);
 
 	return 0;
 }
-
-
 
 int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de sockets, abrir canal de comunicacao com o servidor
 {
@@ -96,12 +99,12 @@ int recebe(int sock_fd)
 	char * tokens;
 	int res;
 	
-	res=read(sock_fd,buffer,255);
+	res=read(sock_fd,buffer,MAX_MSG_LEN);
 	if(res>0)
 	{
 		tokens=strtok(buffer, "\n");
 		tokens[res]="\0";
-		PRINT_BLUE(">>%s\n", tokens);
+		PRINT_BLUE(">> %s\n", tokens);
 		return 0;
 	}
 	else
