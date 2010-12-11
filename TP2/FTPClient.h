@@ -18,6 +18,9 @@
 #define MAX_CMD_LEN 255
 #define MAX_WORD_LEN 20
 
+#define PRINT_BLUE(format,args...) printf("\033[34m"format"\033[0m", ##args);
+#define PRINT_ERROR(format, args...) printf("\033[31m"format"\033[0m", ##args);
+
 int askCmd(char * buffer);
 int parseCmd(char * buffer);
 void clear_last_cmd(char** com);
