@@ -21,15 +21,9 @@
 #define PRINT_GREEN(format,args...) printf("\033[32m"format"\033[0m", ##args);
 #define PRINT_ERROR(format, args...) printf("\033[31m"format"\033[0m", ##args);
 
-int askCmd(char * buffer);
-int parseCmd(char * buffer);
-void clear_last_cmd(char** com);
-int exec_cmd(char ** com);
-
 int parse_addr(char * buffer);
 int recebe(int sock_fd);
 int ligar(char * hostname, int port);
-int authenticate(void);
 int getFile(char * filename);
 int disconnect(int socket_fd);
 
