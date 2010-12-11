@@ -10,6 +10,10 @@
 #include <unistd.h>
 #include <signal.h>
 #include <strings.h>
+#include <string.h>
+#include <fcntl.h>
+
+
 
 #define MAX_CMD_LEN 255
 #define MAX_WORD_LEN 20
@@ -18,7 +22,7 @@ int askCmd(char * buffer);
 int parseCmd(char * buffer);
 void clear_last_cmd(char** com);
 int exec_cmd(char ** com);
-int connect(char * hostname);
+int ligar(char * hostname, int port);
 int authenticate(void);
 int getFile(char * filename);
-int disconnect(char * filename);
+int disconnect(int socket_fd);
