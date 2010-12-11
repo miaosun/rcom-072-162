@@ -1,19 +1,15 @@
 #include "FTPClient.h"
 
 
-#define SERVER_PORT 21
-#define SERVER_ADDR "192.168.28.96"
-
 char * line;
 char ** cmds;
 
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
-	int socket_source, socket_destino;	//sockets source e destino
-	int validado = 0, res;
-	char buffer[MAX_CMD_LEN];
+	int socket_source;	//sockets source e destino
+	char * buf;
 	
-	if(argc!=2)
+	if(argc!=4)
 	{
 		printf("usage: ./FTPClient server_address.domain.com\n");
 		return 0;
@@ -34,25 +30,19 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	
 	//FIM -------------- ligar os sockets ------------------- FIM
 	
-	res=read(socket_source,buffer,255);
-	if(res>0)
-	{
-		PRINT_BLUE(">>%s\n", buffer);
-		return 0;
-	}
-	else
-	{
-		PRINT_ERROR("nao conseguiu ler a mensagem do servidor!\n");
-		return 0;
-	}
+	//recebe mensagem de boas vindas
+	recebe(socket_source);
 	
-	do{
-		validado = authenticate();
-		if(validado == 0){
-			printf("Autenticação errada, por favor, introduza os dados de novo.");
-		}
-	}while(validado==0);
-
+	//envia utilizador
+	sprintf(buf,"USER %s\n", argv[2]);
+	write(socket_source, buf, strlen(buf));
+	recebe(socket_source);
+	
+	//envia password
+	sprintf(buf,"PASS %s\n", argv[3]);
+	write(socket_source, buf, strlen(buf));
+	recebe(socket_source);
+	
 
 	//deligar a ligação dos sockets
 	disconnect(socket_source);
@@ -60,11 +50,7 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	return 0;
 }
 
-int exec_cmd(char ** com)//executa o comando
-{
 
-	return 0;
-}
 
 int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de sockets, abrir canal de comunicacao com o servidor
 {
@@ -104,6 +90,26 @@ int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de so
 	return sockfd;
 }
 
+int recebe(int sock_fd)
+{
+	char buffer[MAX_MSG_LEN];
+	char * tokens;
+	int res;
+	
+	res=read(sock_fd,buffer,255);
+	if(res>0)
+	{
+		tokens=strtok(buffer, "\n");
+		tokens[res]="\0";
+		PRINT_BLUE(">>%s\n", tokens);
+		return 0;
+	}
+	else
+	{
+		PRINT_ERROR("nao conseguiu ler a mensagem do servidor!\n");
+		return 0;
+	}
+}
 
 int authenticate(void)//autenticar-se no servidor com sucesso, username e password
 {
@@ -158,6 +164,12 @@ void clear_last_cmd(char** com) //limpa o ultimo comando armazenado em cmds
 	for(itt=0;com[itt] != NULL;itt++)
 		com[itt] = NULL;
 	//printf(">> limpou linha comandos\n");
+}
+
+int exec_cmd(char ** com)//executa o comando
+{
+
+	return 0;
 }
 
 
