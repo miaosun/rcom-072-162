@@ -15,9 +15,10 @@
 
 
 #define MAX_MSG_LEN 255
-#define MAX_WORD_LEN 20
+#define MAX_WORD_LEN 100
 
 #define PRINT_BLUE(format,args...) printf("\033[34m"format"\033[0m", ##args);
+#define PRINT_GREEN(format,args...) printf("\033[32m"format"\033[0m", ##args);
 #define PRINT_ERROR(format, args...) printf("\033[31m"format"\033[0m", ##args);
 
 int askCmd(char * buffer);
@@ -31,3 +32,6 @@ int ligar(char * hostname, int port);
 int authenticate(void);
 int getFile(char * filename);
 int disconnect(int socket_fd);
+
+int con_pasv(void);
+void cwd(void);

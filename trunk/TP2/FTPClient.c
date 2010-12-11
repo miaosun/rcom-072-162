@@ -1,7 +1,7 @@
 #include "FTPClient.h"
 
 
-
+char * buf;
 char * user;
 char * pass;
 char * addr;
@@ -9,9 +9,9 @@ char ** path;
 
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
-	int socket_source, i=0;	//sockets source e destino
-	char * buf;
-	
+	int socket_source, i=0, socket_dest;	//sockets source e destino
+
+	buf=malloc(MAX_MSG_LEN);
 	user=malloc(MAX_MSG_LEN);
 	pass=malloc(MAX_MSG_LEN);
 	addr=malloc(MAX_MSG_LEN);
@@ -34,11 +34,9 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 		printf("path %i: %s\n", i, path[i]);
 		i++;		
 	}
-
-	
 	
 	//-------------ligar os sockets-------------------------
-	printf("A ligar ao servidor %s\n", argv[1]);
+	printf("A ligar ao servidor %s\n", addr);
 	socket_source = ligar(addr, 21);
 	if (socket_source < 0) 
 	{
@@ -56,23 +54,48 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	recebe(socket_source);
 	
 	//envia utilizador
-	sprintf(buf,"USER %s\n", user);
+	snprintf(buf, MAX_MSG_LEN,"USER %s\n", user);
 	write(socket_source, buf, strlen(buf));
+	PRINT_GREEN("<< %s", buf);
 	recebe(socket_source);
 	
 	//envia password
-	sprintf(buf,"PASS %s\n", pass);
+	snprintf(buf, MAX_MSG_LEN,"PASS %s\n", pass);
 	write(socket_source, buf, strlen(buf));
-	recebe(socket_source);
+	PRINT_GREEN("<< %s", buf);
+	for(i=0; i<3; i++)
+	{
+		//printf("mensagem nr %i\n", i);
+		recebe(socket_source);
+		sleep(1);
+	}
+	
+	//printf("saltou fora\n");
 	
 	//entra em modo passivo
-	sprintf(buf,"PASV\n");
+	snprintf(buf, MAX_MSG_LEN,"PASV\n");
 	write(socket_source, buf, strlen(buf));
+	PRINT_GREEN("<< %s", buf);
 	recebe(socket_source);
-
+	
+	socket_dest=con_pasv();
+	
+	cwd();
+	write(socket_source, buf, strlen(buf));
+	PRINT_GREEN("<< %s", buf);
+	recebe(socket_source);
+	
+	//mostra o directorio onde esta
+	snprintf(buf, MAX_MSG_LEN,"PWD\n");
+	write(socket_source, buf, strlen(buf));
+	PRINT_GREEN("<< %s", buf);
+	recebe(socket_source);
+	
+	
 
 	//deligar a ligação dos sockets
 	disconnect(socket_source);
+	disconnect(socket_dest);
 
 	return 0;
 }
@@ -169,7 +192,7 @@ int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de so
 	
 	serverIP = inet_ntoa(*((struct in_addr *) h->h_addr));
 	
-	printf("IP: %s\n", serverIP);
+	//printf("IP: %s\n", serverIP);
 
 	/*server address handling*/
 	bzero((char*)&server_addr,sizeof(server_addr));
@@ -188,29 +211,75 @@ int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de so
 			disconnect(sockfd);
 			return -1;
 	}
+	//printf("ligou na porta %i\n", port);
 	
 	return sockfd;
 }
 
 int recebe(int sock_fd)
 {
-	char buffer[MAX_MSG_LEN];
 	char * tokens;
 	int res;
 	
-	res=read(sock_fd,buffer,MAX_MSG_LEN);
+	res=read(sock_fd,buf,MAX_MSG_LEN);
 	if(res>0)
 	{
-		tokens=strtok(buffer, "\n");
+		tokens=strtok(buf, "\n");
 		tokens[res]="\0";
 		PRINT_BLUE(">> %s\n", tokens);
-		return 0;
+		buf=tokens;
+		return res;
 	}
 	else
 	{
 		PRINT_ERROR("nao conseguiu ler a mensagem do servidor!\n");
 		return 0;
 	}
+}
+
+void cwd(void)
+{
+	int i, size=0;
+	
+	strcpy(buf, "CWD ");
+	
+	while(path[size]!=NULL)
+		size++;
+	size--;
+	
+	//printf("size %i\n", size);
+	
+	for(i=0; i<size; i++)
+	{
+		//printf("buf %i: %s\n", i, buf);
+		strcat(buf, "/");
+		strcat(buf, path[i]);
+	}
+	strcat(buf, "\n");
+	
+	//printf("comando %s\n", buf);
+	
+}
+
+int con_pasv(void)
+{
+	int i1, i2, port;
+	char * tokens;
+	
+	tokens=strtok(buf, ",");
+	tokens=strtok(NULL, ",");
+	tokens=strtok(NULL, ",");
+	tokens=strtok(NULL, ",");
+	tokens=strtok(NULL, ",");
+	i1=atoi(tokens);
+	//printf("parte 1: %i\n", i1);
+	tokens=strtok(NULL, ",");
+	i2=atoi(tokens);
+	//printf("parte 2: %i\n", i2);
+	
+	port=i1*256+i2;
+	
+	return ligar(addr, port);
 }
 
 int authenticate(void)//autenticar-se no servidor com sucesso, username e password
