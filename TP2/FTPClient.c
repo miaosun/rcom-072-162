@@ -1,19 +1,44 @@
 #include "FTPClient.h"
 
 
-char * line;
-char ** cmds;
+
+char * user;
+char * pass;
+char * addr;
+char ** path;
 
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
-	int socket_source;	//sockets source e destino
+	int socket_source, res, i=0;	//sockets source e destino
 	char * buf;
+	
+	buf=malloc(MAX_MSG_LEN);
+	user=malloc(MAX_MSG_LEN);
+	pass=malloc(MAX_MSG_LEN);
+	addr=malloc(MAX_MSG_LEN);
+	path=(char **)malloc(MAX_WORD_LEN * sizeof(char));
 	
 	if(argc!=2)
 	{
-		printf("usage: ./FTPClient server_address.domain.com\n");
+		printf("usage: ./FTPClient ftp://[<user>:<password>@]<host>/<url-path>\n");
 		return 0;
 	}
+	
+	buf=argv[1];
+	
+	res=parse_addr(buf);
+	if(res<0)
+		return 0;
+	printf("host: %s\n", addr);
+	printf("user: %s\n", user);
+	printf("pass: %s\n", pass);
+	while(path[i]!=NULL)
+	{
+		printf("path %i: %s\n", i, path[i]);
+		i++;		
+	}
+	return 0;
+	
 	
 	//-------------ligar os sockets-------------------------
 	printf("A ligar ao servidor %s\n", argv[1]);
@@ -53,6 +78,83 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	disconnect(socket_source);
 
 	return 0;
+}
+
+int parse_addr(char * buffer)
+{
+	char * tokens; 
+	char * aux;
+	char * host;
+	int i=0;
+	
+	tokens=strtok(buffer, "/");
+	if(strcmp(tokens, "ftp:")!=0)
+	{
+		PRINT_ERROR("erro no url. usage: ftp://[<user>:<password>@]<host>/<url-path>\n");
+		return -1;
+	}
+	host=strtok(NULL, "/");
+	//printf("host %s\n", host);
+	
+	tokens=strtok(NULL, "/");
+	while(tokens!=NULL)
+	{
+		path[i]=tokens;
+		//printf("path %i: %s\n", i, path[i]);
+		tokens=strtok(NULL, "/");
+		i++;
+	}
+	path[i]=NULL;
+	
+		tokens=strstr(path[i-1], ".");
+	//printf("tokens finais ponto: %s\n", tokens);
+	if(i==0||tokens==NULL)
+	{
+		PRINT_ERROR("erro no path do ficheiro: tem que existir\n");
+		return -1;
+	}
+	
+	aux=strstr(host, ":");
+		
+	if(aux==NULL)
+	{
+		//printf("nao tem ':' \n");
+		user="anonymous";
+		pass="anonymous@anonymous.com";
+		aux=strstr(host, "@");
+		if(aux==NULL)
+		{
+			//printf("nao tem '@' \n");
+			addr=host;
+		}
+		else
+		{
+			PRINT_ERROR("erro na especificacao do utilizador e password\n");
+			return -1;
+		}
+	}
+	else
+	{
+		//printf("tem ':' \n");
+		
+		aux=strtok(host, ":");
+		//printf("antes de ':' %s\n", aux);
+		
+		user=aux;
+		aux=strtok(NULL, "@");
+		//printf("tem '@' \n");
+		pass=aux;
+		aux=strtok(NULL, "/");
+		if(aux==NULL)
+		{
+			//printf("nao tem '@' \n");
+			PRINT_ERROR("erro na especificacao do utilizador e password\n");
+			return -1;
+		}
+		addr=aux;
+	}
+
+	return 1;
 }
 
 int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de sockets, abrir canal de comunicacao com o servidor
@@ -135,7 +237,7 @@ int disconnect(int socket_fd)//fechar a ligacao
 }
 
 
-int askCmd(char * buffer)//pede o comando e preenche-o no buffer
+/*int askCmd(char * buffer)//pede o comando e preenche-o no buffer
 {
 	printf(">> ");
 	scanf("%s", buffer);
@@ -175,5 +277,5 @@ int exec_cmd(char ** com)//executa o comando
 	return 0;
 }
 
-
+*/
 
