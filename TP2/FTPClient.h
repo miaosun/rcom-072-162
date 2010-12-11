@@ -15,7 +15,7 @@
 
 
 
-#define MAX_MSG_LEN 255
+#define MAX_MSG_LEN 1000
 #define MAX_WORD_LEN 20
 
 #define PRINT_BLUE(format,args...) printf("\033[34m"format"\033[0m", ##args);
