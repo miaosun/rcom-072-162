@@ -29,3 +29,5 @@ int disconnect(int socket_fd);
 
 int con_pasv(void);
 void cwd(void);
+void retr(void);
+int recebe_ficheiro(int sock_fd);
