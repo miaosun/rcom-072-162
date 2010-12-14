@@ -7,10 +7,12 @@ char * pass;
 char * addr;
 char ** path;
 int path_size;
+int main_socket;
+int data_socket;
 
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
-	int socket_source, i=0, socket_dest;	//sockets source e destino
+	int res;
 
 	buf=malloc(MAX_MSG_LEN);
 	user=malloc(MAX_MSG_LEN);
@@ -24,83 +26,116 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 		return 0;
 	}
 	
-	
-	if(parse_addr(argv[1])<0)
+	if(parse_addr(argv[1])!=TRUE)
+	{
+		printf("usage: ./FTPClient ftp://[<user>:<password>@]<host>/<url-path>\n");
 		return 0;
-	printf("host: %s\n", addr);
-	printf("user: %s\n", user);
-	printf("pass: %s\n", pass);
-	while(path[i]!=NULL)
+	}
+	
+	
+	res=exec();
+	
+	if(res==1)
+		disconnect(main_socket);
+	else if(res==2)
+	{
+		disconnect(main_socket);
+		disconnect(data_socket);
+	}
+
+	return 0;
+}
+
+int exec(void)
+{
+	int res, i=0;
+	
+	//printf("host: %s\n", addr);
+	//printf("user: %s\n", user);
+	//printf("pass: %s\n", pass);
+	/*while(path[i]!=NULL)
 	{
 		printf("path %i: %s\n", i, path[i]);
 		i++;		
-	}
-	
-	//-------------ligar os sockets-------------------------
-	printf("A ligar ao servidor %s\n", addr);
-	socket_source = ligar(addr, 21);
-	if (socket_source < 0) 
+	}*/
+
+	printf("A ligar ao servidor %s...\n", addr);
+	main_socket = ligar(addr, 21);
+	if (main_socket < 0) 
 	{
 		PRINT_ERROR("Error connecting server %s:21.\n", addr);
 		return 0;
 	} 
 	else 
 	{
-		printf("FTP connection estabelecida em: %s:21\n", addr);
+		printf("FTP connection estabelecida em: %s:21, a espera de resposta...\n", addr);
 	}
 	
-	//FIM -------------- ligar os sockets ------------------- FIM
-	
 	//recebe mensagem de boas vindas
-	recebe(socket_source);
+	res=recebe(main_socket);
+	if(res>3)
+	{
+		PRINT_ERROR("Servidor com resposta negativa, exiting...\n");
+		return 1;
+	}
 	
 	//envia utilizador
-	snprintf(buf, MAX_MSG_LEN,"USER %s\n", user);
-	write(socket_source, buf, strlen(buf));
+	snprintf(buf, MAX_MSG_LEN,"USER %s\r\n", user);
+	write(main_socket, buf, strlen(buf));
 	PRINT_GREEN("<< %s", buf);
-	recebe(socket_source);
+	res=recebe(main_socket);
+	if(res>3)
+	{
+		PRINT_ERROR("Servidor com resposta negativa, exiting...\n");
+		return 1;
+	}
 	
 	//envia password
-	snprintf(buf, MAX_MSG_LEN,"PASS %s\n", pass);
-	write(socket_source, buf, strlen(buf));
+	snprintf(buf, MAX_MSG_LEN,"PASS %s\r\n", pass);
+	write(main_socket, buf, strlen(buf));
 	PRINT_GREEN("<< %s", buf);
 	for(i=0; i<3; i++)
 	{
 		//printf("mensagem nr %i\n", i);
-		recebe(socket_source);
+		res=recebe(main_socket);
+		if(res>3)
+		{
+			PRINT_ERROR("Servidor com resposta negativa, exiting...\n");
+			return 1;
+		}
 		sleep(1);
 	}
 	
 	//printf("saltou fora\n");
 	
 	//entra em modo passivo
-	snprintf(buf, MAX_MSG_LEN,"PASV\n");
-	write(socket_source, buf, strlen(buf));
+	snprintf(buf, MAX_MSG_LEN,"PASV\r\n");
+	write(main_socket, buf, strlen(buf));
 	PRINT_GREEN("<< %s", buf);
-	recebe(socket_source);
+	res=recebe(main_socket);
+	if(res>3)
+	{
+		PRINT_ERROR("Servidor com resposta negativa, exiting...\n");
+		return 1;
+	}
 	
-	socket_dest=con_pasv();
+	data_socket=con_pasv();
 	
-	printf("abriu socket de dados\n");
+	if(data_socket<0)
+	{
+		PRINT_ERROR("Problema ao abrir a socket de dados, exiting\n");
+		return 1;
+	}
+	
+	
+	//printf("abriu socket de dados\n");
 	
 	retr();
-	write(socket_source, buf, strlen(buf));
+	write(main_socket, buf, strlen(buf));
 	PRINT_GREEN("<< %s", buf);
-	recebe_ficheiro(socket_dest);
+	recebe_ficheiro(data_socket);
 	
-	/*//mostra o directorio onde esta
-	snprintf(buf, MAX_MSG_LEN,"PWD\n");
-	write(socket_source, buf, strlen(buf));
-	PRINT_GREEN("<< %s", buf);
-	recebe(socket_source);*/
-	
-	
-
-	//deligar a ligação dos sockets
-	disconnect(socket_source);
-	disconnect(socket_dest);
-
-	return 0;
+	return  -1;
 }
 
 int recebe_ficheiro(int sock_fd)
@@ -109,18 +144,28 @@ int recebe_ficheiro(int sock_fd)
 	
 	char buffer[MAX_MSG_LEN];
 	
-	fd=open(path[path_size-1], O_CREAT | O_RDWR);
+	fd=open(path[path_size-1], O_CREAT | O_WRONLY | O_EXCL);
 	
-	res=recv(sock_fd, buffer, sizeof(char) * MAX_MSG_LEN, MSG_WAITALL);
+	if(fd<0)
+	{
+		PRINT_ERROR("Erro a abrir ficheiro local para escrita, exiting...\n");
+		return FALSE;
+	}
+		
+	printf("A transferir ficheiro %s...\n", path[path_size-1]);
+	
+	res=recv(sock_fd, buffer, MAX_MSG_LEN, MSG_WAITALL);
 	while(res>0)
 	{
 		write(fd, buffer, res);
-		res=recv(sock_fd, buffer, sizeof(char) * MAX_MSG_LEN, MSG_WAITALL);
+		res=recv(sock_fd, buffer, MAX_MSG_LEN, MSG_WAITALL);
 	}
 	
 	close(fd);
 	
-	return 1;
+	printf("SUCESSO!\n");
+	
+	return TRUE;
 }
 
 void retr(void)
@@ -137,7 +182,7 @@ void retr(void)
 		strcat(buf, path[i]);
 		i++;
 	}
-	strcat(buf, "\n");
+	strcat(buf, "\r\n");
 	
 	//printf("comando %s\n", buf);
 }
@@ -153,7 +198,7 @@ int parse_addr(char * buffer)
 	if(strcmp(tokens, "ftp:")!=0)
 	{
 		PRINT_ERROR("erro no url. usage: ftp://[<user>:<password>@]<host>/<url-path>\n");
-		return -1;
+		return FALSE;
 	}
 	host=strtok(NULL, "/");
 	//printf("host %s\n", host);
@@ -175,7 +220,7 @@ int parse_addr(char * buffer)
 	if(i==0||tokens==NULL)
 	{
 		PRINT_ERROR("erro no path do ficheiro: tem que existir\n");
-		return -1;
+		return FALSE;
 	}
 	
 	aux=strstr(host, ":");
@@ -194,7 +239,7 @@ int parse_addr(char * buffer)
 		else
 		{
 			PRINT_ERROR("erro na especificacao do utilizador e password\n");
-			return -1;
+			return FALSE;
 		}
 	}
 	else
@@ -213,12 +258,12 @@ int parse_addr(char * buffer)
 		{
 			//printf("nao tem '@' \n");
 			PRINT_ERROR("erro na especificacao do utilizador e password\n");
-			return -1;
+			return FALSE;
 		}
 		addr=aux;
 	}
 
-	return 1;
+	return TRUE;
 }
 
 int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de sockets, abrir canal de comunicacao com o servidor
@@ -262,48 +307,46 @@ int ligar(char * hostname, int port)//fazer a ligacao ao servidor, atravez de so
 
 int recebe(int sock_fd)
 {
-	char * tokens;
-	int res;
+	char * msg;
+	char response[2], response_t[4];
+	int res, i_response;
 	
-	res=recv(sock_fd, buf, sizeof(char) * MAX_MSG_LEN, O_NONBLOCK);
-	//res=read(sock_fd,buf,MAX_MSG_LEN);
+	res=read(sock_fd,buf,MAX_MSG_LEN);
 	if(res>0)
 	{
-		tokens=strtok(buf, "\n");
-		tokens[res]="\0";
-		PRINT_BLUE(">> %s\n", tokens);
-		buf=tokens;
-		return res;
+		msg=strtok(buf, "\n");
+		msg[res]='\0';
+		PRINT_BLUE(">> %s\n", msg);
+		buf=msg;
+		strncpy(response_t, msg, 3);
+		response[0]=msg[0];
+		response[1]='\0';
+		i_response=atoi(response);
+		//printf("codigo %i\n", res);
+		
+		/*if(msg[3]=='-')
+		{
+			do
+			{
+				res=read(sock_fd,buf,MAX_MSG_LEN);
+				printf("dentro\n");
+				msg=strtok(buf, "\n");
+				msg[res]='\0';
+				PRINT_BLUE(">> %s\n", msg);				
+			}
+			while(strstr(buf, response_t)==NULL);
+		}
+		
+		printf("saiu\n");
+		*/
+		
+		return i_response;
 	}
 	else
 	{
 		PRINT_ERROR("nao conseguiu ler a mensagem do servidor!\n");
 		return 0;
 	}
-}
-
-void cwd(void)
-{
-	int i, size=0;
-	
-	strcpy(buf, "CWD ");
-	
-	while(path[size]!=NULL)
-		size++;
-	size--;
-	
-	//printf("size %i\n", size);
-	
-	for(i=0; i<size; i++)
-	{
-		//printf("buf %i: %s\n", i, buf);
-		strcat(buf, "/");
-		strcat(buf, path[i]);
-	}
-	strcat(buf, "\n");
-	
-	//printf("comando %s\n", buf);
-	
 }
 
 int con_pasv(void)
@@ -327,16 +370,9 @@ int con_pasv(void)
 	return ligar(addr, port);
 }
 
-
-int getFile(char * filename)//fazer download do ficheiro
-{
-	return 0;
-}
-
 int disconnect(int socket_fd)//fechar a ligacao
 {
-	//shutdown(socket,SHUT_RDWR);
-	close(socket_fd);
+	shutdown(socket_fd,SHUT_RDWR);
 	close(socket_fd);
 	return 0;
 }

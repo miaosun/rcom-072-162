@@ -12,7 +12,8 @@
 #include <string.h>
 #include <fcntl.h>
 
-
+#define TRUE 1
+#define FALSE 0
 
 #define MAX_MSG_LEN 255
 #define MAX_WORD_LEN 100
@@ -24,10 +25,10 @@
 int parse_addr(char * buffer);
 int recebe(int sock_fd);
 int ligar(char * hostname, int port);
-int getFile(char * filename);
 int disconnect(int socket_fd);
 
 int con_pasv(void);
-void cwd(void);
 void retr(void);
 int recebe_ficheiro(int sock_fd);
+
+int exec(void);
