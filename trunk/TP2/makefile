@@ -4,12 +4,10 @@ CFLAGS = -Wall
 CLIENT = FTPClient.o
 
 
-all: clean ftpclient
+all: clean download
 
-exec: ./ftpclient
-
-ftpclient: $(CLIENT)
-	$(CC) -o ftpclient $(CLIENT)
+download: $(CLIENT)
+	$(CC) -o download $(CLIENT)
 
 FTPClient.o: FTPClient.c FTPClient.h
 	$(CC) $(CFLAGS) $< -c -o $@
@@ -17,5 +15,5 @@ FTPClient.o: FTPClient.c FTPClient.h
 
 clean: 
 	-rm $(CLIENT)
-	-rm ftpclient
+	-rm download
 	clear
