@@ -6,6 +6,7 @@ char * user;
 char * pass;
 char * addr;
 char ** path;
+int path_size;
 
 int main(int argc, char *argv[])//o nome do servidor deve ser passado como parametro
 {
@@ -80,16 +81,18 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	
 	socket_dest=con_pasv();
 	
-	cwd();
+	printf("abriu socket de dados\n");
+	
+	retr();
 	write(socket_source, buf, strlen(buf));
 	PRINT_GREEN("<< %s", buf);
-	recebe(socket_source);
+	recebe_ficheiro(socket_dest);
 	
-	//mostra o directorio onde esta
+	/*//mostra o directorio onde esta
 	snprintf(buf, MAX_MSG_LEN,"PWD\n");
 	write(socket_source, buf, strlen(buf));
 	PRINT_GREEN("<< %s", buf);
-	recebe(socket_source);
+	recebe(socket_source);*/
 	
 	
 
@@ -98,6 +101,45 @@ int main(int argc, char *argv[])//o nome do servidor deve ser passado como param
 	disconnect(socket_dest);
 
 	return 0;
+}
+
+int recebe_ficheiro(int sock_fd)
+{
+	int fd, res;
+	
+	char buffer[MAX_MSG_LEN];
+	
+	fd=open(path[path_size-1], O_CREAT | O_RDWR);
+	
+	res=recv(sock_fd, buffer, sizeof(char) * MAX_MSG_LEN, MSG_WAITALL);
+	while(res>0)
+	{
+		write(fd, buffer, res);
+		res=recv(sock_fd, buffer, sizeof(char) * MAX_MSG_LEN, MSG_WAITALL);
+	}
+	
+	close(fd);
+	
+	return 1;
+}
+
+void retr(void)
+{
+	int i=0;
+	
+	strcpy(buf, "RETR ");
+		
+	
+	while(path[i]!=NULL)
+	{
+		//printf("buf %i: %s\n", i, buf);
+		strcat(buf, "/");
+		strcat(buf, path[i]);
+		i++;
+	}
+	strcat(buf, "\n");
+	
+	//printf("comando %s\n", buf);
 }
 
 int parse_addr(char * buffer)
@@ -125,6 +167,8 @@ int parse_addr(char * buffer)
 		i++;
 	}
 	path[i]=NULL;
+	
+	path_size=i;
 	
 		tokens=strstr(path[i-1], ".");
 	//printf("tokens finais ponto: %s\n", tokens);
@@ -221,7 +265,8 @@ int recebe(int sock_fd)
 	char * tokens;
 	int res;
 	
-	res=read(sock_fd,buf,MAX_MSG_LEN);
+	res=recv(sock_fd, buf, sizeof(char) * MAX_MSG_LEN, O_NONBLOCK);
+	//res=read(sock_fd,buf,MAX_MSG_LEN);
 	if(res>0)
 	{
 		tokens=strtok(buf, "\n");
